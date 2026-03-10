@@ -81,105 +81,105 @@ for cat, slots in SLOT_CATEGORIES.items():
 # Default mapping: slot_id -> XML tag name (current hardcoded behavior)
 DEFAULT_MAPPINGS: dict[str, str] = {
     # Supplier
-    "supplier_name": "DostawcaNazwa",
-    "supplier_street": "DostawcaAdresUlica",
-    "supplier_city": "DostawcaAdresMiejscowosc",
-    "supplier_postal_code": "DostawcaAdresKodPocztowy",
-    "supplier_nip": "DostawcaNIP",
+    "supplier_name": "SupplierName",
+    "supplier_street": "SupplierStreet",
+    "supplier_city": "SupplierCity",
+    "supplier_postal_code": "SupplierPostalCode",
+    "supplier_nip": "SupplierVatNumber",
     # Buyer
-    "buyer_name": "NabywcaNazwa",
-    "buyer_street": "NabywcaAdresUlica",
-    "buyer_city": "NabywcaAdresMiejscowosc",
-    "buyer_postal_code": "NabywcaAdresKodPocztowy",
-    "buyer_nip": "NabywcaNIP",
+    "buyer_name": "BuyerName",
+    "buyer_street": "BuyerStreet",
+    "buyer_city": "BuyerCity",
+    "buyer_postal_code": "BuyerPostalCode",
+    "buyer_nip": "BuyerVatNumber",
     # Invoice Details
-    "invoice_number": "FakturaNumer",
-    "issue_date": "FakturaDataWystawienia",
-    "due_date": "FakturaDataPlatnosci",
-    "payment_type": "FakturaTypPlatnosci",
-    "currency": "FakturaWaluta",
-    "delivery_note": "FakturaNumeryWZ",
+    "invoice_number": "InvoiceNumber",
+    "issue_date": "IssueDate",
+    "due_date": "DueDate",
+    "payment_type": "PaymentMethod",
+    "currency": "Currency",
+    "delivery_note": "DeliveryNote",
     # Totals
-    "net_total": "FakturaWartoscNetto",
-    "vat_total": "FakturaWartoscVat",
-    "gross_total": "FakturaWartoscBrutto",
+    "net_total": "NetTotal",
+    "vat_total": "VatTotal",
+    "gross_total": "GrossTotal",
     # Items Table
-    "item_code": "TowarKod",
-    "item_name": "TowarNazwa",
-    "item_qty": "Ilosc",
-    "item_unit": "TowarJm",
-    "item_unit_price": "CenaNetto",
-    "item_vat_rate": "StawkaVat",
-    "item_net_total": "WartoscNetto",
+    "item_code": "ProductCode",
+    "item_name": "ProductName",
+    "item_qty": "Quantity",
+    "item_unit": "Unit",
+    "item_unit_price": "UnitPrice",
+    "item_vat_rate": "VatRate",
+    "item_net_total": "NetAmount",
     # Batch Details
-    "batch_product_name": "TowarNazwa",
-    "batch_lot_number": "TowarDostawaNumerSerii",
-    "batch_expiry_date": "TowarDostawaDataWaznosci",
+    "batch_product_name": "ProductName",
+    "batch_lot_number": "LotNumber",
+    "batch_expiry_date": "ExpiryDate",
     # Barcodes
-    "barcode_ean128": "TowarKodEan128",
-    "barcode_ean": "TowarKodEan",
-    "barcode_product_name": "TowarNazwa",
-    "barcode_product_code": "TowarKod",
-    "barcode_batch": "TowarDostawaNumerSerii",
-    "barcode_expiry": "TowarDostawaDataWaznosci",
+    "barcode_ean128": "Ean128Code",
+    "barcode_ean": "EanCode",
+    "barcode_product_name": "ProductName",
+    "barcode_product_code": "ProductCode",
+    "barcode_batch": "LotNumber",
+    "barcode_expiry": "ExpiryDate",
 }
 
 
 # Keyword-based fuzzy matching: slot -> list of lowercase substrings to look for in tags
 SLOT_KEYWORDS: dict[str, list[str]] = {
-    # Supplier
-    "supplier_name": ["dostawcanazwa", "suppliername", "vendorname", "sprzedawcanazwa", "sellername"],
-    "supplier_street": ["dostawcaadresulica", "supplierstreet", "vendorstreet", "sprzedawcaulica"],
-    "supplier_city": ["dostawcaadresmiejscowosc", "suppliercity", "vendorcity", "sprzedawcamiasto"],
-    "supplier_postal_code": ["dostawcaadrescodpocztowy", "supplierpostal", "vendorpostal", "sprzedawcakod"],
-    "supplier_nip": ["dostawcanip", "suppliernip", "suppliervatnumber", "vendornip", "sprzedawcanip"],
-    # Buyer
-    "buyer_name": ["nabywcanazwa", "buyername", "customername", "odbiorca", "purchasername"],
-    "buyer_street": ["nabywcaadresulica", "buyerstreet", "customerstreet", "odbiorcaulica"],
-    "buyer_city": ["nabywcaadresmiejscowosc", "buyercity", "customercity", "odbiorcamiasto"],
-    "buyer_postal_code": ["nabywcaadrescodpocztowy", "buyerpostal", "customerpostal", "odbiorcakod"],
-    "buyer_nip": ["nabywcanip", "buyernip", "buyervatnumber", "customernip", "odbiorcnip"],
-    # Invoice Details
-    "invoice_number": ["fakturanumer", "invoicenumber", "invoiceno", "nrdokumentu", "docnumber"],
-    "issue_date": ["fakturadatawystawienia", "issuedate", "invoicedate", "datadokumentu", "datawystawienia"],
-    "due_date": ["fakturadataplatnosci", "duedate", "paymentdate", "dataplatnosci", "terminplatnosci"],
-    "payment_type": ["fakturatypplatnosci", "paymenttype", "paymentmethod", "formaplat", "typplatnosci"],
-    "currency": ["fakturawaluta", "currency", "waluta", "currencycode"],
-    "delivery_note": ["fakturanumerywz", "deliverynote", "wznumber", "numerywz", "lieferschein"],
-    # Totals
-    "net_total": ["fakturawartoscnetto", "nettotal", "totalnet", "wartoscnetto", "summanetto"],
-    "vat_total": ["fakturawartoscvat", "vattotal", "totalvat", "wartoscvat", "summavat", "totaltax"],
-    "gross_total": ["fakturawartoscbrutto", "grosstotal", "totalbrutto", "wartoscbrutto", "summabrutto", "totaldue"],
-    # Items Table
-    "item_code": ["towarkod", "itemcode", "productcode", "sku", "artnr", "artikelnr"],
-    "item_name": ["towarnazwa", "itemname", "productname", "description", "artikelname", "bezeichnung"],
-    "item_qty": ["ilosc", "quantity", "qty", "menge", "itemqty"],
-    "item_unit": ["towarjm", "itemunit", "uom", "einheit", "jednostka"],
-    "item_unit_price": ["cenanetto", "unitprice", "priceperunit", "einzelpreis", "cenajed"],
-    "item_vat_rate": ["stawkavat", "vatrate", "taxrate", "mwst", "steuersatz"],
-    "item_net_total": ["wartoscnetto", "netamount", "linetotal", "nettowert", "linenet"],
-    # Batch Details
-    "batch_product_name": ["towarnazwa", "batchproduct", "productname"],
-    "batch_lot_number": ["towardostawanumerserii", "lotnumber", "batchnumber", "chargennr", "numerpartii", "lotno"],
-    "batch_expiry_date": ["towardostawadatawaznosci", "expirydate", "expdate", "bestbefore", "datawaznosci", "mhd"],
-    # Barcodes
-    "barcode_ean128": ["towarkodean128", "ean128", "gs1128", "gs1barcode"],
-    "barcode_ean": ["towarkodean", "eancode", "ean13", "gtin"],
-    "barcode_product_name": ["towarnazwa"],
-    "barcode_product_code": ["towarkod", "productcode"],
-    "barcode_batch": ["towardostawanumerserii", "batchnumber", "lotnumber"],
-    "barcode_expiry": ["towardostawadatawaznosci", "expirydate", "expdate"],
+    # Supplier — EN, DE, FR, ES, IT, NL, PL
+    "supplier_name": ["suppliername", "vendorname", "sellername", "lieferantname", "lieferantename", "fournisseurnom", "nomfournisseur", "proveedornombre", "nombreproveedor", "fornitorenome", "nomefornito", "leveranciernaam", "dostawcanazwa", "sprzedawcanazwa"],
+    "supplier_street": ["supplierstreet", "supplieraddress", "vendorstreet", "lieferantstrasse", "fournisseurrue", "proveedorcalle", "fornitorevia", "leverancierstraat", "dostawcaadresulica", "sprzedawcaulica"],
+    "supplier_city": ["suppliercity", "vendorcity", "lieferantstadt", "lieferantort", "fournisseurville", "proveedorciudad", "fornitorecitt", "leverancierstad", "dostawcaadresmiejscowosc", "sprzedawcamiasto"],
+    "supplier_postal_code": ["supplierpostal", "supplierpostcode", "vendorpostal", "lieferantplz", "fournisseurcodepostal", "proveedorcodigopostal", "fornitorecap", "leverancierpostcode", "dostawcaadrescodpocztowy", "sprzedawcakod"],
+    "supplier_nip": ["suppliervatnumber", "suppliervat", "suppliernip", "vendornip", "lieferantumsatzsteuer", "lieferantsteuernr", "fournisseurtva", "proveedornif", "proveedorcif", "fornitoreiva", "fornitorecodicefiscale", "leverancierbtw", "dostawcanip", "sprzedawcanip"],
+    # Buyer — EN, DE, FR, ES, IT, NL, PL
+    "buyer_name": ["buyername", "customername", "purchasername", "kaeufer", "kundenname", "empfaengername", "acheteurnom", "nomacheteur", "clientnom", "compradornom", "nombrecomprador", "clientenombre", "acquirentenome", "nomeacquirente", "clientenome", "kopernaam", "klantnaam", "nabywcanazwa", "odbiorca"],
+    "buyer_street": ["buyerstreet", "customerstreet", "kaeuferstrasse", "kundenstrasse", "acheteurrue", "compradorc alle", "acquirentevia", "koperstraat", "nabywcaadresulica", "odbiorcaulica"],
+    "buyer_city": ["buyercity", "customercity", "kaeuferstadt", "kundenort", "acheteurville", "compradorciudad", "acquirentecitt", "koperstad", "nabywcaadresmiejscowosc", "odbiorcamiasto"],
+    "buyer_postal_code": ["buyerpostal", "buyerpostcode", "customerpostal", "kaeuferplz", "kundenplz", "acheteurcodepostal", "compradorcodigopostal", "acquirentecap", "koperpostcode", "nabywcaadrescodpocztowy", "odbiorcakod"],
+    "buyer_nip": ["buyervatnumber", "buyervat", "buyernip", "customernip", "kaeuferumsatzsteuer", "kundensteuernr", "acheteurtva", "compradornif", "acquirenteiva", "koperbtw", "nabywcanip", "odbiorcnip"],
+    # Invoice Details — EN, DE, FR, ES, IT, NL, PL
+    "invoice_number": ["invoicenumber", "invoiceno", "rechnungsnummer", "rechnungnr", "numerofacture", "facturenumero", "numerofactura", "facturanumero", "numerofattura", "fatturanumero", "factuurnummer", "fakturanumer", "nrdokumentu", "docnumber"],
+    "issue_date": ["issuedate", "invoicedate", "rechnungsdatum", "ausstellungsdatum", "datefacture", "dateemission", "fechafactura", "fechaemision", "datafattura", "dataemissione", "factuurdatum", "fakturadatawystawienia", "datadokumentu", "datawystawienia"],
+    "due_date": ["duedate", "paymentdate", "paymentdue", "faelligkeitsdatum", "zahlungsdatum", "dateecheance", "datepaiement", "fechavencimiento", "scadenza", "datascadenza", "vervaldatum", "betaaldatum", "fakturadataplatnosci", "dataplatnosci", "terminplatnosci"],
+    "payment_type": ["paymentmethod", "paymenttype", "zahlungsart", "zahlungsmethode", "modepaiement", "moyenpaiement", "formadepago", "metodopagamento", "betaalwijze", "betaalmethode", "fakturatypplatnosci", "formaplat", "typplatnosci"],
+    "currency": ["currency", "currencycode", "waehrung", "devise", "moneda", "divisa", "valuta", "munteenheid", "fakturawaluta", "waluta"],
+    "delivery_note": ["deliverynote", "deliverynumber", "lieferschein", "lieferscheinnr", "bonlivraison", "albaranentrega", "bolladiconsegna", "pakbon", "leveringsbon", "fakturanumerywz", "numerywz", "wznumber"],
+    # Totals — EN, DE, FR, ES, IT, NL, PL
+    "net_total": ["nettotal", "totalnet", "nettogesamt", "nettobetrag", "gesamtnetto", "totalhorsttaxe", "totalht", "totalneto", "importeneto", "totalenetto", "importonetto", "nettototaal", "totaalnetto", "fakturawartoscnetto", "wartoscnetto", "summanetto"],
+    "vat_total": ["vattotal", "totalvat", "totaltax", "mwstgesamt", "umsatzsteuergesamt", "totaltva", "montanttva", "totaliva", "importeiva", "totaleiva", "importoiva", "btwtotaal", "totaalbtw", "fakturawartoscvat", "wartoscvat", "summavat"],
+    "gross_total": ["grosstotal", "totalbrutto", "totaldue", "grandtotal", "bruttogesamt", "gesamtbrutto", "totalttc", "montantttc", "totalbruto", "importebruto", "totalelordo", "importolordo", "brutototaal", "totaalbruto", "fakturawartoscbrutto", "wartoscbrutto", "summabrutto"],
+    # Items Table — EN, DE, FR, ES, IT, NL, PL
+    "item_code": ["productcode", "itemcode", "sku", "artikelnr", "artnr", "artikelnummer", "codearticle", "codeproduit", "codigoproducto", "codigoarticulo", "codiceprodotto", "codicearticolo", "productcode", "artikelcode", "towarkod"],
+    "item_name": ["productname", "itemname", "description", "artikelname", "bezeichnung", "artikelbezeichnung", "nomarticle", "designationproduit", "nombreproducto", "descripcion", "nomeprodotto", "descrizione", "productnaam", "artikelnaam", "omschrijving", "towarnazwa"],
+    "item_qty": ["quantity", "qty", "menge", "anzahl", "quantite", "cantidad", "quantita", "aantal", "hoeveelheid", "ilosc"],
+    "item_unit": ["unit", "uom", "unitofmeasure", "einheit", "mengeneinheit", "unite", "unidad", "unita", "eenheid", "towarjm", "jednostka"],
+    "item_unit_price": ["unitprice", "priceperunit", "einzelpreis", "stueckpreis", "prixunitaire", "preciounitario", "prezzounitario", "eenheidsprijs", "stuksprijs", "cenanetto", "cenajed"],
+    "item_vat_rate": ["vatrate", "taxrate", "mwst", "mwstsatz", "steuersatz", "tauxtva", "tipoiva", "aliquotaiva", "btwpercentage", "btwtarief", "stawkavat"],
+    "item_net_total": ["netamount", "linetotal", "linenet", "nettowert", "positionsnetto", "montantnet", "importeneto", "importonetto", "nettobedrag", "regelbedrag", "wartoscnetto"],
+    # Batch Details — EN, DE, FR, ES, IT, NL, PL
+    "batch_product_name": ["productname", "batchproduct", "artikelname", "nomarticle", "nombreproducto", "nomeprodotto", "productnaam", "towarnazwa"],
+    "batch_lot_number": ["lotnumber", "lotno", "batchnumber", "chargennr", "chargenummer", "numerolot", "numerolote", "numerolotto", "lotnummer", "partijnummer", "towardostawanumerserii", "numerpartii"],
+    "batch_expiry_date": ["expirydate", "expdate", "bestbefore", "verfallsdatum", "mindesthaltbarkeit", "mhd", "haltbarkeitsdatum", "dateperemption", "dluo", "fechacaducidad", "fechavencimiento", "datascadenza", "houdbaarheidsdatum", "vervaldatum", "towardostawadatawaznosci", "datawaznosci"],
+    # Barcodes — EN, DE, FR, ES, IT, NL, PL
+    "barcode_ean128": ["ean128code", "ean128", "gs1128", "gs1barcode", "towarkodean128"],
+    "barcode_ean": ["eancode", "ean13", "gtin", "ean", "towarkodean"],
+    "barcode_product_name": ["productname", "artikelname", "nomarticle", "nombreproducto", "nomeprodotto", "productnaam", "towarnazwa"],
+    "barcode_product_code": ["productcode", "artikelnr", "codearticle", "codigoproducto", "codiceprodotto", "artikelcode", "towarkod"],
+    "barcode_batch": ["batchnumber", "lotnumber", "chargennr", "numerolot", "numerolote", "numerolotto", "lotnummer", "towardostawanumerserii"],
+    "barcode_expiry": ["expirydate", "expdate", "verfallsdatum", "mhd", "dateperemption", "fechacaducidad", "datascadenza", "vervaldatum", "towardostawadatawaznosci"],
 }
 
 
 @dataclass
 class MappingConfig:
-    name: str = "Default Polish Invoice"
+    name: str = "British English Invoice"
     mappings: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_MAPPINGS))
     include_barcodes: bool = True
     font_dir: str | None = None
-    header_xpath: str = ".//Naglowek"
-    item_xpath: str = ".//Pozycja"
+    header_xpath: str = ".//Header"
+    item_xpath: str = "./Invoice/Items/Item"
 
     def get(self, slot_id: str) -> str:
         """Return the XML tag mapped to a slot, or empty string if unmapped."""
