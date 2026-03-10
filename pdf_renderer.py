@@ -49,6 +49,12 @@ FONT_SEARCH_PATHS = [
 
 W, H = A4
 
+# ── Pagination constants ─────────────────────────────────────
+FOOTER_MARGIN_Y = 30 * mm
+CONT_HEADER_H = 20 * mm
+CONT_TOP_Y = H - CONT_HEADER_H - 18 * mm
+TOTALS_BLOCK_H = 50 * mm
+
 
 def register_fonts(font_dir: str | None = None) -> bool:
     """Register DejaVu Sans fonts with Polish character support (UTF-8)."""
@@ -162,8 +168,223 @@ def draw_footer(c, inv: InvoiceData, cfg: MappingConfig, page_num: int, total_pa
     c.drawRightString(W - 20 * mm, y, right_text)
 
 
-def draw_page1(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int):
-    """Draw the main invoice page."""
+# ── Table data builders ──────────────────────────────────────
+
+def _build_items_data(inv: InvoiceData, cfg: MappingConfig):
+    """Build items table header, data rows, and column widths."""
+    styles = getSampleStyleSheet()
+    cs   = ParagraphStyle("C",  parent=styles["Normal"], fontSize=8, leading=10, textColor=DARK_TXT, fontName="DJV")
+    cs_r = ParagraphStyle("CR", parent=cs, alignment=TA_RIGHT)
+    cs_c = ParagraphStyle("CC", parent=cs, alignment=TA_CENTER)
+    hs   = ParagraphStyle("H",  parent=styles["Normal"], fontSize=7, leading=9, textColor=WHITE, fontName="DJV-Bold")
+    hs_r = ParagraphStyle("HR", parent=hs, alignment=TA_RIGHT)
+    hs_c = ParagraphStyle("HC", parent=hs, alignment=TA_CENTER)
+
+    header_row = [
+        Paragraph("#", hs_c), Paragraph("Code", hs), Paragraph("Description", hs),
+        Paragraph("Qty", hs_c), Paragraph("Unit", hs_c), Paragraph("Unit Price", hs_r),
+        Paragraph("VAT", hs_c), Paragraph("Net Total", hs_r),
+    ]
+
+    data_rows = []
+    for idx, item in enumerate(inv.items, 1):
+        data_rows.append([
+            Paragraph(str(idx), cs_c),
+            Paragraph(_ival(item, cfg, "item_code"), cs),
+            Paragraph(_ival(item, cfg, "item_name"), cs),
+            Paragraph(_ival(item, cfg, "item_qty"), cs_c),
+            Paragraph(_ival(item, cfg, "item_unit"), cs_c),
+            Paragraph(f"{float(_ival(item, cfg, 'item_unit_price') or 0):.2f}", cs_r),
+            Paragraph(_ival(item, cfg, "item_vat_rate"), cs_c),
+            Paragraph(f"{float(_ival(item, cfg, 'item_net_total') or 0):.2f}", cs_r),
+        ])
+
+    col_widths = [8*mm, 18*mm, 60*mm, 12*mm, 12*mm, 22*mm, 14*mm, 25*mm]
+    return header_row, data_rows, col_widths
+
+
+def _build_batch_data(inv: InvoiceData, cfg: MappingConfig):
+    """Build batch table header, data rows, and column widths."""
+    styles = getSampleStyleSheet()
+    ss   = ParagraphStyle("S",  parent=styles["Normal"], fontSize=7, leading=9, textColor=DARK_TXT, fontName="DJV")
+    ss_c = ParagraphStyle("SC", parent=ss, alignment=TA_CENTER)
+    sh   = ParagraphStyle("SH", parent=ss, fontName="DJV-Bold", textColor=WHITE, fontSize=6.5)
+    sh_c = ParagraphStyle("SHC", parent=sh, alignment=TA_CENTER)
+
+    header_row = [
+        Paragraph("#", sh_c), Paragraph("Product", sh),
+        Paragraph("Batch / Lot No.", sh), Paragraph("Expiry Date", sh),
+    ]
+
+    data_rows = []
+    for idx, item in enumerate(inv.items, 1):
+        data_rows.append([
+            Paragraph(str(idx), ss_c),
+            Paragraph(_ival(item, cfg, "batch_product_name"), ss),
+            Paragraph(_ival(item, cfg, "batch_lot_number"), ss),
+            Paragraph(_ival(item, cfg, "batch_expiry_date"), ss),
+        ])
+
+    col_widths = [8*mm, 70*mm, 45*mm, 30*mm]
+    return header_row, data_rows, col_widths
+
+
+# ── Measurement & splitting ──────────────────────────────────
+
+def _measure_row_heights(header_row, data_rows, col_widths, table_width):
+    """Wrap a temporary table and return per-row heights (header + data)."""
+    all_rows = [header_row] + data_rows
+    tbl = Table(all_rows, colWidths=col_widths)
+    tbl.wrap(table_width, 9999)
+    return list(tbl._rowHeights)
+
+
+def _split_table_rows(row_heights, header_h, first_avail_h, cont_avail_h):
+    """Split data rows into page chunks via greedy packing.
+
+    row_heights: heights for data rows only (not header).
+    Returns list of (start_idx, end_idx) tuples (exclusive end).
+    """
+    if not row_heights:
+        return []
+    chunks = []
+    i = 0
+    n = len(row_heights)
+    first = True
+    while i < n:
+        avail = first_avail_h if first else cont_avail_h
+        avail -= header_h  # reserve space for repeated header
+        first = False
+        j = i
+        used = 0.0
+        while j < n and used + row_heights[j] <= avail:
+            used += row_heights[j]
+            j += 1
+        if j == i:
+            j = i + 1  # force at least 1 row per chunk
+        chunks.append((i, j))
+        i = j
+    return chunks
+
+
+# ── Drawing helpers ──────────────────────────────────────────
+
+def _draw_table_chunk(c, header_row, data_rows, col_widths, y_top,
+                      orig_start_idx, is_batch=False):
+    """Draw a sub-table (header + data_rows slice) at y_top. Returns height drawn."""
+    all_rows = [header_row] + data_rows
+    tbl = Table(all_rows, colWidths=col_widths)
+
+    pad = 3 if is_batch else 4
+    hdr_fs = 6.5 if is_batch else 7
+    lb_w = 0.8 if is_batch else 1
+    corner = 3 if is_batch else 4
+
+    style_cmds = [
+        ("BACKGROUND",     (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR",      (0, 0), (-1, 0), WHITE),
+        ("FONTNAME",       (0, 0), (-1, 0), "DJV-Bold"),
+        ("FONTSIZE",       (0, 0), (-1, 0), hdr_fs),
+        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",     (0, 0), (-1, -1), pad),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1), pad),
+        ("LEFTPADDING",    (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING",   (0, 0), (-1, -1), 3),
+        ("LINEBELOW",      (0, 0), (-1, 0), lb_w, ACCENT),
+        ("LINEBELOW",      (0, 1), (-1, -1), 0.3, LINE_GRY),
+        ("ROUNDEDCORNERS", [corner, corner, 0, 0]),
+    ]
+    for i in range(len(data_rows)):
+        orig_idx = orig_start_idx + i  # 0-based original data row index
+        tbl_row = i + 1               # row in sub-table (0 = header)
+        if (orig_idx + 1) % 2 == 0:   # even table-row index in original
+            style_cmds.append(("BACKGROUND", (0, tbl_row), (-1, tbl_row), ROW_ALT))
+    tbl.setStyle(TableStyle(style_cmds))
+
+    table_width = W - 40 * mm
+    _, tbl_h = tbl.wrap(table_width, 9999)
+    tbl.drawOn(c, 20 * mm, y_top - tbl_h)
+    return tbl_h
+
+
+def _draw_continuation_header(c, inv: InvoiceData, cfg: MappingConfig, label: str):
+    """Draw a slim navy header bar on continuation pages. Returns y where content starts."""
+    bar_h = CONT_HEADER_H
+    c.setFillColor(NAVY)
+    c.rect(0, H - bar_h, W, bar_h, fill=1, stroke=0)
+    c.setFillColor(WHITE)
+    c.setFont(FONT_B, 14)
+    inv_num = _hval(inv, cfg, "invoice_number")
+    text = _truncate(f"Invoice #{inv_num} \u2014 {label}", FONT_B, 14, W - 40 * mm)
+    c.drawString(20 * mm, H - 14 * mm, text)
+    c.setFillColor(ACCENT)
+    c.rect(0, H - bar_h - 2.5, W, 2.5, fill=1, stroke=0)
+    return CONT_TOP_Y
+
+
+def _count_content_pages(inv: InvoiceData, cfg: MappingConfig):
+    """Measurement pass: count how many pages the content section needs."""
+    table_width = W - 40 * mm
+
+    # Page 1 fixed layout positions
+    bar_h = 28 * mm
+    y_badges = H - bar_h - 28 * mm
+    y_boxes = y_badges - 42 * mm
+    y_wz = y_boxes - 8 * mm
+    y_table_top = y_wz - 8 * mm
+
+    first_avail = y_table_top - FOOTER_MARGIN_Y
+    cont_avail = CONT_TOP_Y - FOOTER_MARGIN_Y
+
+    # Items table
+    items_header, items_rows, items_cols = _build_items_data(inv, cfg)
+    items_rh = _measure_row_heights(items_header, items_rows, items_cols, table_width)
+    items_header_h = items_rh[0]
+    items_data_rh = items_rh[1:]
+
+    items_chunks = _split_table_rows(items_data_rh, items_header_h, first_avail, cont_avail)
+    pages = 1 + max(0, len(items_chunks) - 1)
+
+    # y_cursor after items
+    if not items_chunks:
+        y_cursor = y_table_top
+    elif len(items_chunks) == 1:
+        start, end = items_chunks[0]
+        y_cursor = y_table_top - items_header_h - sum(items_data_rh[start:end])
+    else:
+        start, end = items_chunks[-1]
+        y_cursor = CONT_TOP_Y - items_header_h - sum(items_data_rh[start:end])
+
+    # Totals
+    if y_cursor - TOTALS_BLOCK_H < FOOTER_MARGIN_Y:
+        pages += 1
+        y_cursor = CONT_TOP_Y
+    y_tot = y_cursor - 12 * mm
+    y_cursor = y_tot - 46 * mm
+
+    # Batch table
+    batch_label_h = 8 * mm
+    batch_header, batch_rows, batch_cols = _build_batch_data(inv, cfg)
+    batch_rh = _measure_row_heights(batch_header, batch_rows, batch_cols, table_width)
+    batch_header_h = batch_rh[0]
+    batch_data_rh = batch_rh[1:]
+
+    batch_first_avail = y_cursor - batch_label_h - FOOTER_MARGIN_Y
+    min_batch = batch_header_h + (batch_data_rh[0] if batch_data_rh else 0)
+    if batch_first_avail < min_batch:
+        pages += 1
+        y_cursor = CONT_TOP_Y
+        batch_first_avail = y_cursor - batch_label_h - FOOTER_MARGIN_Y
+
+    batch_chunks = _split_table_rows(batch_data_rh, batch_header_h,
+                                     batch_first_avail, cont_avail)
+    pages += max(0, len(batch_chunks) - 1)
+
+    return pages
+
+
+def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int):
+    """Draw all content pages (header, items, totals, batch). Returns last page number."""
 
     # ── Header bar ──────────────────────────────────────
     bar_h = 28 * mm
@@ -270,61 +491,46 @@ def draw_page1(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int):
         c.setFont(FONT, 8)
         c.drawString(20 * mm, y_wz, f"Delivery Note (WZ): {wz}")
 
-    # ── Items table ─────────────────────────────────────
+    # ── Paginated items table ────────────────────────────
+    table_width = W - 40 * mm
+    page_num = 1
     y_table_top = y_wz - 8 * mm
-    col_widths = [8*mm, 18*mm, 60*mm, 12*mm, 12*mm, 22*mm, 14*mm, 25*mm]
 
-    styles = getSampleStyleSheet()
-    cs   = ParagraphStyle("C",  parent=styles["Normal"], fontSize=8, leading=10, textColor=DARK_TXT, fontName="DJV")
-    cs_r = ParagraphStyle("CR", parent=cs, alignment=TA_RIGHT)
-    cs_c = ParagraphStyle("CC", parent=cs, alignment=TA_CENTER)
-    hs   = ParagraphStyle("H",  parent=styles["Normal"], fontSize=7, leading=9, textColor=WHITE, fontName="DJV-Bold")
-    hs_r = ParagraphStyle("HR", parent=hs, alignment=TA_RIGHT)
-    hs_c = ParagraphStyle("HC", parent=hs, alignment=TA_CENTER)
+    items_header, items_rows, items_cols = _build_items_data(inv, cfg)
+    items_rh = _measure_row_heights(items_header, items_rows, items_cols, table_width)
+    items_header_h = items_rh[0]
+    items_data_rh = items_rh[1:]
 
-    data = [[
-        Paragraph("#", hs_c), Paragraph("Code", hs), Paragraph("Description", hs),
-        Paragraph("Qty", hs_c), Paragraph("Unit", hs_c), Paragraph("Unit Price", hs_r),
-        Paragraph("VAT", hs_c), Paragraph("Net Total", hs_r),
-    ]]
+    first_avail = y_table_top - FOOTER_MARGIN_Y
+    cont_avail = CONT_TOP_Y - FOOTER_MARGIN_Y
 
-    for idx, item in enumerate(inv.items, 1):
-        data.append([
-            Paragraph(str(idx), cs_c),
-            Paragraph(_ival(item, cfg, "item_code"), cs),
-            Paragraph(_ival(item, cfg, "item_name"), cs),
-            Paragraph(_ival(item, cfg, "item_qty"), cs_c),
-            Paragraph(_ival(item, cfg, "item_unit"), cs_c),
-            Paragraph(f"{float(_ival(item, cfg, 'item_unit_price') or 0):.2f}", cs_r),
-            Paragraph(_ival(item, cfg, "item_vat_rate"), cs_c),
-            Paragraph(f"{float(_ival(item, cfg, 'item_net_total') or 0):.2f}", cs_r),
-        ])
+    items_chunks = _split_table_rows(items_data_rh, items_header_h, first_avail, cont_avail)
 
-    tbl = Table(data, colWidths=col_widths)
-    style_cmds = [
-        ("BACKGROUND",     (0, 0), (-1, 0), NAVY),
-        ("TEXTCOLOR",      (0, 0), (-1, 0), WHITE),
-        ("FONTNAME",       (0, 0), (-1, 0), "DJV-Bold"),
-        ("FONTSIZE",       (0, 0), (-1, 0), 7),
-        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",     (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
-        ("LEFTPADDING",    (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING",   (0, 0), (-1, -1), 3),
-        ("LINEBELOW",      (0, 0), (-1, 0), 1, ACCENT),
-        ("LINEBELOW",      (0, 1), (-1, -1), 0.3, LINE_GRY),
-        ("ROUNDEDCORNERS", [4, 4, 0, 0]),
-    ]
-    for i in range(1, len(data)):
-        if i % 2 == 0:
-            style_cmds.append(("BACKGROUND", (0, i), (-1, i), ROW_ALT))
-    tbl.setStyle(TableStyle(style_cmds))
-
-    _, tbl_h = tbl.wrap(W - 40 * mm, 200 * mm)
-    tbl.drawOn(c, 20 * mm, y_table_top - tbl_h)
+    y_cursor = y_table_top
+    if items_chunks:
+        for ci, (start, end) in enumerate(items_chunks):
+            if ci > 0:
+                draw_footer(c, inv, cfg, page_num, total_pages)
+                c.showPage()
+                page_num += 1
+                y_cursor = _draw_continuation_header(
+                    c, inv, cfg, f"Items table (continued from page {page_num - 1})")
+            chunk_h = _draw_table_chunk(
+                c, items_header, items_rows[start:end], items_cols, y_cursor, start)
+            y_cursor -= chunk_h
+    else:
+        # No data rows — draw header-only table
+        chunk_h = _draw_table_chunk(c, items_header, [], items_cols, y_cursor, 0)
+        y_cursor -= chunk_h
 
     # ── Totals summary ──────────────────────────────────
-    y_tot = y_table_top - tbl_h - 12 * mm
+    if y_cursor - TOTALS_BLOCK_H < FOOTER_MARGIN_Y:
+        draw_footer(c, inv, cfg, page_num, total_pages)
+        c.showPage()
+        page_num += 1
+        y_cursor = _draw_continuation_header(c, inv, cfg, "Invoice summary")
+
+    y_tot = y_cursor - 12 * mm
     tw = 70 * mm
     tx = W - 20 * mm - tw
     currency = _hval(inv, cfg, "currency")
@@ -352,49 +558,61 @@ def draw_page1(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int):
     c.drawRightString(tx + tw - 5 * mm, y_tot - 22 * mm,
                       f"{currency} {float(_hval(inv, cfg, 'gross_total') or 0):.2f}")
 
-    # ── Batch / expiry table ────────────────────────────
-    y_batch = y_tot - 46 * mm
-    c.setFillColor(MID_GRAY); c.setFont(FONT, 7)
-    c.drawString(20 * mm, y_batch + 4 * mm, "BATCH & EXPIRY DETAILS")
+    # ── Paginated batch / expiry table ───────────────────
+    y_cursor = y_tot - 46 * mm
+    batch_label_h = 8 * mm
 
-    ss   = ParagraphStyle("S",  parent=styles["Normal"], fontSize=7, leading=9, textColor=DARK_TXT, fontName="DJV")
-    ss_c = ParagraphStyle("SC", parent=ss, alignment=TA_CENTER)
-    sh   = ParagraphStyle("SH", parent=ss, fontName="DJV-Bold", textColor=WHITE, fontSize=6.5)
-    sh_c = ParagraphStyle("SHC", parent=sh, alignment=TA_CENTER)
+    batch_header, batch_rows, batch_cols = _build_batch_data(inv, cfg)
+    batch_rh = _measure_row_heights(batch_header, batch_rows, batch_cols, table_width)
+    batch_header_h = batch_rh[0]
+    batch_data_rh = batch_rh[1:]
 
-    bcols = [8*mm, 70*mm, 45*mm, 30*mm]
-    bdata = [[Paragraph("#", sh_c), Paragraph("Product", sh),
-              Paragraph("Batch / Lot No.", sh), Paragraph("Expiry Date", sh)]]
+    batch_first_avail = y_cursor - batch_label_h - FOOTER_MARGIN_Y
+    min_batch = batch_header_h + (batch_data_rh[0] if batch_data_rh else 0)
+    if batch_first_avail < min_batch:
+        draw_footer(c, inv, cfg, page_num, total_pages)
+        c.showPage()
+        page_num += 1
+        y_cursor = _draw_continuation_header(c, inv, cfg, "Batch & expiry details")
+        batch_first_avail = y_cursor - batch_label_h - FOOTER_MARGIN_Y
 
-    for idx, item in enumerate(inv.items, 1):
-        bdata.append([
-            Paragraph(str(idx), ss_c),
-            Paragraph(_ival(item, cfg, "batch_product_name"), ss),
-            Paragraph(_ival(item, cfg, "batch_lot_number"), ss),
-            Paragraph(_ival(item, cfg, "batch_expiry_date"), ss),
-        ])
+    batch_chunks = _split_table_rows(batch_data_rh, batch_header_h,
+                                     batch_first_avail, cont_avail)
 
-    bt = Table(bdata, colWidths=bcols)
-    bstyle = [
-        ("BACKGROUND", (0, 0), (-1, 0), NAVY),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.8, ACCENT),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.3, LINE_GRY),
-        ("ROUNDEDCORNERS", [3, 3, 0, 0]),
-    ]
-    for i in range(1, len(bdata)):
-        if i % 2 == 0:
-            bstyle.append(("BACKGROUND", (0, i), (-1, i), ROW_ALT))
-    bt.setStyle(TableStyle(bstyle))
-    _, bh = bt.wrap(W - 40 * mm, 100 * mm)
-    bt.drawOn(c, 20 * mm, y_batch - bh)
+    if batch_chunks:
+        for ci, (start, end) in enumerate(batch_chunks):
+            if ci > 0:
+                draw_footer(c, inv, cfg, page_num, total_pages)
+                c.showPage()
+                page_num += 1
+                y_cursor = _draw_continuation_header(
+                    c, inv, cfg, f"Batch & expiry details (continued from page {page_num - 1})")
+            if ci == 0:
+                c.setFillColor(MID_GRAY)
+                c.setFont(FONT, 7)
+                c.drawString(20 * mm, y_cursor - batch_label_h + 4 * mm,
+                             "BATCH & EXPIRY DETAILS")
+                y_cursor -= batch_label_h
+            chunk_h = _draw_table_chunk(
+                c, batch_header, batch_rows[start:end], batch_cols,
+                y_cursor, start, is_batch=True)
+            y_cursor -= chunk_h
+    else:
+        c.setFillColor(MID_GRAY)
+        c.setFont(FONT, 7)
+        c.drawString(20 * mm, y_cursor - batch_label_h + 4 * mm,
+                     "BATCH & EXPIRY DETAILS")
+        y_cursor -= batch_label_h
+        chunk_h = _draw_table_chunk(
+            c, batch_header, [], batch_cols, y_cursor, 0, is_batch=True)
+        y_cursor -= chunk_h
 
-    draw_footer(c, inv, cfg, 1, total_pages)
+    draw_footer(c, inv, cfg, page_num, total_pages)
+    return page_num
 
 
-def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int):
+def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig,
+                       total_pages: int, start_page_num: int = 2):
     """Draw EAN-128 / GS1-128 barcode pages for each item."""
 
     # Check if any items have EAN-128 codes
@@ -403,7 +621,7 @@ def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
         return
 
     c.showPage()
-    page_num = 2
+    page_num = start_page_num
     margin_x = 20 * mm
     card_w = W - 40 * mm
     card_h = 40 * mm
@@ -516,18 +734,20 @@ def xml_to_pdf(xml_path: str, output_path: str | None = None,
                       header_xpath=mapping_config.header_xpath,
                       item_xpath=mapping_config.item_xpath)
 
-    # Calculate page count
-    total_pages = 1
+    # Two-pass: measure content pages, then draw
+    content_pages = _count_content_pages(inv, mapping_config)
+    barcode_pages = 0
     if mapping_config.include_barcodes:
         barcode_count = sum(1 for item in inv.items if _ival(item, mapping_config, "barcode_ean128"))
         if barcode_count > 0:
-            total_pages += math.ceil(barcode_count / 5)
+            barcode_pages = math.ceil(barcode_count / 5)
+    total_pages = content_pages + barcode_pages
 
     c = canvas.Canvas(output_path, pagesize=A4)
-    draw_page1(c, inv, mapping_config, total_pages)
+    last_page = draw_content_pages(c, inv, mapping_config, total_pages)
 
     if mapping_config.include_barcodes:
-        draw_barcode_pages(c, inv, mapping_config, total_pages)
+        draw_barcode_pages(c, inv, mapping_config, total_pages, last_page + 1)
 
     c.save()
     return output_path
