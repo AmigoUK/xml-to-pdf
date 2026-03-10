@@ -1,223 +1,197 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Document>
-  <Faktura>
-    <Naglowek>
-      <DostawcaNazwa>Pemberton &amp; Whitfield Ltd</DostawcaNazwa>
-      <DostawcaAdresUlica>47 Marchmont Street</DostawcaAdresUlica>
-      <DostawcaAdresMiejscowosc>London</DostawcaAdresMiejscowosc>
-      <DostawcaAdresKodPocztowy>WC1N 1AP</DostawcaAdresKodPocztowy>
-      <DostawcaNIP>GB 482 7391 06</DostawcaNIP>
-      <NabywcaNazwa>Thornbury Medical Supplies Ltd</NabywcaNazwa>
-      <NabywcaAdresUlica>12 Castle Park Industrial Estate</NabywcaAdresUlica>
-      <NabywcaAdresMiejscowosc>Bristol</NabywcaAdresMiejscowosc>
-      <NabywcaAdresKodPocztowy>BS10 7QT</NabywcaAdresKodPocztowy>
-      <NabywcaNIP>GB 631 8502 49</NabywcaNIP>
-      <FakturaNumer>INV-2026-003842</FakturaNumer>
-      <FakturaDataWystawienia>2026-03-10</FakturaDataWystawienia>
-      <FakturaDataPlatnosci>2026-04-09</FakturaDataPlatnosci>
-      <FakturaTypPlatnosci>Bank Transfer</FakturaTypPlatnosci>
-      <FakturaWaluta>GBP</FakturaWaluta>
-      <FakturaNumeryWZ>DN/2026/0571</FakturaNumeryWZ>
-      <FakturaWartoscNetto>2487.50</FakturaWartoscNetto>
-      <FakturaWartoscVat>497.50</FakturaWartoscVat>
-      <FakturaWartoscBrutto>2985.00</FakturaWartoscBrutto>
-    </Naglowek>
-    <Pozycje>
-      <Pozycja>
-        <TowarKod>PW-1001</TowarKod>
-        <TowarNazwa>Sterile Gauze Pads 10x10cm (Box of 100)</TowarNazwa>
-        <Ilosc>25</Ilosc>
-        <TowarJm>box</TowarJm>
-        <CenaNetto>8.50</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>212.50</WartoscNetto>
-        <WartoscVat>42.50</WartoscVat>
-        <WartoscBrutto>255.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>GAU-240917-A</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2028-09-30</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412780011</TowarKodEan>
-        <TowarKodEan128>(01)05060412780011(17)280930(10)GAU-240917-A</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-1042</TowarKod>
-        <TowarNazwa>Nitrile Examination Gloves Medium (200pk)</TowarNazwa>
-        <Ilosc>40</Ilosc>
-        <TowarJm>box</TowarJm>
-        <CenaNetto>12.75</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>510.00</WartoscNetto>
-        <WartoscVat>102.00</WartoscVat>
-        <WartoscBrutto>612.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>NIT-250103-B</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2029-01-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412780042</TowarKodEan>
-        <TowarKodEan128>(01)05060412780042(17)290131(10)NIT-250103-B</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-2015</TowarKod>
-        <TowarNazwa>Adhesive Wound Closure Strips 6x75mm</TowarNazwa>
-        <Ilosc>60</Ilosc>
-        <TowarJm>pkt</TowarJm>
-        <CenaNetto>3.20</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>192.00</WartoscNetto>
-        <WartoscVat>38.40</WartoscVat>
-        <WartoscBrutto>230.40</WartoscBrutto>
-        <TowarDostawaNumerSerii>AWC-241205-C</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2028-12-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412780158</TowarKodEan>
-        <TowarKodEan128>(01)05060412780158(17)281231(10)AWC-241205-C</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-3008</TowarKod>
-        <TowarNazwa>Disposable Face Masks Type IIR (50pk)</TowarNazwa>
-        <Ilosc>30</Ilosc>
-        <TowarJm>box</TowarJm>
-        <CenaNetto>6.40</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>192.00</WartoscNetto>
-        <WartoscVat>38.40</WartoscVat>
-        <WartoscBrutto>230.40</WartoscBrutto>
-        <TowarDostawaNumerSerii>FM2-250210-D</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2029-02-28</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412780301</TowarKodEan>
-        <TowarKodEan128>(01)05060412780301(17)290228(10)FM2-250210-D</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-1078</TowarKod>
-        <TowarNazwa>Alcohol Hand Sanitiser Gel 500ml</TowarNazwa>
-        <Ilosc>50</Ilosc>
-        <TowarJm>btl</TowarJm>
-        <CenaNetto>4.25</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>212.50</WartoscNetto>
-        <WartoscVat>42.50</WartoscVat>
-        <WartoscBrutto>255.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>AHS-250115-E</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2028-06-30</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412780783</TowarKodEan>
-        <TowarKodEan128>(01)05060412780783(17)280630(10)AHS-250115-E</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-4022</TowarKod>
-        <TowarNazwa>Elastic Crepe Bandage 7.5cm x 4.5m</TowarNazwa>
-        <Ilosc>80</Ilosc>
-        <TowarJm>pcs</TowarJm>
-        <CenaNetto>2.10</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>168.00</WartoscNetto>
-        <WartoscVat>33.60</WartoscVat>
-        <WartoscBrutto>201.60</WartoscBrutto>
-        <TowarDostawaNumerSerii>ECB-250220-F</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2030-02-28</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412784022</TowarKodEan>
-        <TowarKodEan128>(01)05060412784022(17)300228(10)ECB-250220-F</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-5003</TowarKod>
-        <TowarNazwa>Digital Thermometer Probe Covers (200pk)</TowarNazwa>
-        <Ilosc>15</Ilosc>
-        <TowarJm>box</TowarJm>
-        <CenaNetto>9.80</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>147.00</WartoscNetto>
-        <WartoscVat>29.40</WartoscVat>
-        <WartoscBrutto>176.40</WartoscBrutto>
-        <TowarDostawaNumerSerii>DTP-250301-G</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2029-03-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412785036</TowarKodEan>
-        <TowarKodEan128>(01)05060412785036(17)290331(10)DTP-250301-G</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-2031</TowarKod>
-        <TowarNazwa>Microporous Surgical Tape 2.5cm x 9.1m</TowarNazwa>
-        <Ilosc>100</Ilosc>
-        <TowarJm>roll</TowarJm>
-        <CenaNetto>1.85</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>185.00</WartoscNetto>
-        <WartoscVat>37.00</WartoscVat>
-        <WartoscBrutto>222.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>MST-241118-H</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2029-11-30</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412782031</TowarKodEan>
-        <TowarKodEan128>(01)05060412782031(17)291130(10)MST-241118-H</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-6010</TowarKod>
-        <TowarNazwa>Sharps Disposal Container 5L</TowarNazwa>
-        <Ilosc>20</Ilosc>
-        <TowarJm>pcs</TowarJm>
-        <CenaNetto>7.90</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>158.00</WartoscNetto>
-        <WartoscVat>31.60</WartoscVat>
-        <WartoscBrutto>189.60</WartoscBrutto>
-        <TowarDostawaNumerSerii>SDC-250108-J</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2031-01-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412786019</TowarKodEan>
-        <TowarKodEan128>(01)05060412786019(17)310131(10)SDC-250108-J</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-1099</TowarKod>
-        <TowarNazwa>Cotton Wool Balls Non-Sterile (500pk)</TowarNazwa>
-        <Ilosc>35</Ilosc>
-        <TowarJm>bag</TowarJm>
-        <CenaNetto>4.30</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>150.50</WartoscNetto>
-        <WartoscVat>30.10</WartoscVat>
-        <WartoscBrutto>180.60</WartoscBrutto>
-        <TowarDostawaNumerSerii>CWB-250226-K</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2029-08-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412781096</TowarKodEan>
-        <TowarKodEan128>(01)05060412781096(17)290831(10)CWB-250226-K</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-7005</TowarKod>
-        <TowarNazwa>Tongue Depressors Wooden (Box of 100)</TowarNazwa>
-        <Ilosc>20</Ilosc>
-        <TowarJm>box</TowarJm>
-        <CenaNetto>3.50</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>70.00</WartoscNetto>
-        <WartoscVat>14.00</WartoscVat>
-        <WartoscBrutto>84.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>TDW-250115-L</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2030-06-30</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412787054</TowarKodEan>
-        <TowarKodEan128>(01)05060412787054(17)300630(10)TDW-250115-L</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-3019</TowarKod>
-        <TowarNazwa>Disposable Aprons Blue (Roll of 200)</TowarNazwa>
-        <Ilosc>10</Ilosc>
-        <TowarJm>roll</TowarJm>
-        <CenaNetto>14.00</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>140.00</WartoscNetto>
-        <WartoscVat>28.00</WartoscVat>
-        <WartoscBrutto>168.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>DAB-250203-M</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2029-05-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412783198</TowarKodEan>
-        <TowarKodEan128>(01)05060412783198(17)290531(10)DAB-250203-M</TowarKodEan128>
-      </Pozycja>
-      <Pozycja>
-        <TowarKod>PW-8002</TowarKod>
-        <TowarNazwa>Saline Solution 0.9% Sterile 500ml</TowarNazwa>
-        <Ilosc>30</Ilosc>
-        <TowarJm>btl</TowarJm>
-        <CenaNetto>5.00</CenaNetto>
-        <StawkaVat>20%</StawkaVat>
-        <WartoscNetto>150.00</WartoscNetto>
-        <WartoscVat>30.00</WartoscVat>
-        <WartoscBrutto>180.00</WartoscBrutto>
-        <TowarDostawaNumerSerii>SAL-250120-N</TowarDostawaNumerSerii>
-        <TowarDostawaDataWaznosci>2027-12-31</TowarDostawaDataWaznosci>
-        <TowarKodEan>5060412788020</TowarKodEan>
-        <TowarKodEan128>(01)05060412788020(17)271231(10)SAL-250120-N</TowarKodEan128>
-      </Pozycja>
-    </Pozycje>
-  </Faktura>
+  <Invoice>
+    <Header>
+      <SupplierName>Pemberton &amp; Whitfield Ltd</SupplierName>
+      <SupplierStreet>47 Marchmont Street</SupplierStreet>
+      <SupplierCity>London</SupplierCity>
+      <SupplierPostalCode>WC1N 1AP</SupplierPostalCode>
+      <SupplierVatNumber>GB 482 7391 06</SupplierVatNumber>
+      <BuyerName>Thornbury Medical Supplies Ltd</BuyerName>
+      <BuyerStreet>12 Castle Park Industrial Estate</BuyerStreet>
+      <BuyerCity>Bristol</BuyerCity>
+      <BuyerPostalCode>BS10 7QT</BuyerPostalCode>
+      <BuyerVatNumber>GB 631 8502 49</BuyerVatNumber>
+      <InvoiceNumber>INV-2026-003842</InvoiceNumber>
+      <IssueDate>2026-03-10</IssueDate>
+      <DueDate>2026-04-09</DueDate>
+      <PaymentMethod>Bank Transfer</PaymentMethod>
+      <Currency>GBP</Currency>
+      <DeliveryNote>DN/2026/0571</DeliveryNote>
+      <NetTotal>2487.50</NetTotal>
+      <VatTotal>497.50</VatTotal>
+      <GrossTotal>2985.00</GrossTotal>
+    </Header>
+    <Items>
+      <Item>
+        <ProductCode>PW-1001</ProductCode>
+        <ProductName>Sterile Gauze Pads 10x10cm (Box of 100)</ProductName>
+        <Quantity>25</Quantity>
+        <Unit>box</Unit>
+        <UnitPrice>8.50</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>212.50</NetAmount>
+        <LotNumber>GAU-240917-A</LotNumber>
+        <ExpiryDate>2028-09-30</ExpiryDate>
+        <EanCode>5060412780011</EanCode>
+        <Ean128Code>(01)05060412780011(17)280930(10)GAU-240917-A</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-1042</ProductCode>
+        <ProductName>Nitrile Examination Gloves Medium (200pk)</ProductName>
+        <Quantity>40</Quantity>
+        <Unit>box</Unit>
+        <UnitPrice>12.75</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>510.00</NetAmount>
+        <LotNumber>NIT-250103-B</LotNumber>
+        <ExpiryDate>2029-01-31</ExpiryDate>
+        <EanCode>5060412780042</EanCode>
+        <Ean128Code>(01)05060412780042(17)290131(10)NIT-250103-B</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-2015</ProductCode>
+        <ProductName>Adhesive Wound Closure Strips 6x75mm</ProductName>
+        <Quantity>60</Quantity>
+        <Unit>pkt</Unit>
+        <UnitPrice>3.20</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>192.00</NetAmount>
+        <LotNumber>AWC-241205-C</LotNumber>
+        <ExpiryDate>2028-12-31</ExpiryDate>
+        <EanCode>5060412780158</EanCode>
+        <Ean128Code>(01)05060412780158(17)281231(10)AWC-241205-C</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-3008</ProductCode>
+        <ProductName>Disposable Face Masks Type IIR (50pk)</ProductName>
+        <Quantity>30</Quantity>
+        <Unit>box</Unit>
+        <UnitPrice>6.40</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>192.00</NetAmount>
+        <LotNumber>FM2-250210-D</LotNumber>
+        <ExpiryDate>2029-02-28</ExpiryDate>
+        <EanCode>5060412780301</EanCode>
+        <Ean128Code>(01)05060412780301(17)290228(10)FM2-250210-D</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-1078</ProductCode>
+        <ProductName>Alcohol Hand Sanitiser Gel 500ml</ProductName>
+        <Quantity>50</Quantity>
+        <Unit>btl</Unit>
+        <UnitPrice>4.25</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>212.50</NetAmount>
+        <LotNumber>AHS-250115-E</LotNumber>
+        <ExpiryDate>2028-06-30</ExpiryDate>
+        <EanCode>5060412780783</EanCode>
+        <Ean128Code>(01)05060412780783(17)280630(10)AHS-250115-E</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-4022</ProductCode>
+        <ProductName>Elastic Crepe Bandage 7.5cm x 4.5m</ProductName>
+        <Quantity>80</Quantity>
+        <Unit>pcs</Unit>
+        <UnitPrice>2.10</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>168.00</NetAmount>
+        <LotNumber>ECB-250220-F</LotNumber>
+        <ExpiryDate>2030-02-28</ExpiryDate>
+        <EanCode>5060412784022</EanCode>
+        <Ean128Code>(01)05060412784022(17)300228(10)ECB-250220-F</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-5003</ProductCode>
+        <ProductName>Digital Thermometer Probe Covers (200pk)</ProductName>
+        <Quantity>15</Quantity>
+        <Unit>box</Unit>
+        <UnitPrice>9.80</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>147.00</NetAmount>
+        <LotNumber>DTP-250301-G</LotNumber>
+        <ExpiryDate>2029-03-31</ExpiryDate>
+        <EanCode>5060412785036</EanCode>
+        <Ean128Code>(01)05060412785036(17)290331(10)DTP-250301-G</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-2031</ProductCode>
+        <ProductName>Microporous Surgical Tape 2.5cm x 9.1m</ProductName>
+        <Quantity>100</Quantity>
+        <Unit>roll</Unit>
+        <UnitPrice>1.85</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>185.00</NetAmount>
+        <LotNumber>MST-241118-H</LotNumber>
+        <ExpiryDate>2029-11-30</ExpiryDate>
+        <EanCode>5060412782031</EanCode>
+        <Ean128Code>(01)05060412782031(17)291130(10)MST-241118-H</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-6010</ProductCode>
+        <ProductName>Sharps Disposal Container 5L</ProductName>
+        <Quantity>20</Quantity>
+        <Unit>pcs</Unit>
+        <UnitPrice>7.90</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>158.00</NetAmount>
+        <LotNumber>SDC-250108-J</LotNumber>
+        <ExpiryDate>2031-01-31</ExpiryDate>
+        <EanCode>5060412786019</EanCode>
+        <Ean128Code>(01)05060412786019(17)310131(10)SDC-250108-J</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-1099</ProductCode>
+        <ProductName>Cotton Wool Balls Non-Sterile (500pk)</ProductName>
+        <Quantity>35</Quantity>
+        <Unit>bag</Unit>
+        <UnitPrice>4.30</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>150.50</NetAmount>
+        <LotNumber>CWB-250226-K</LotNumber>
+        <ExpiryDate>2029-08-31</ExpiryDate>
+        <EanCode>5060412781096</EanCode>
+        <Ean128Code>(01)05060412781096(17)290831(10)CWB-250226-K</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-7005</ProductCode>
+        <ProductName>Tongue Depressors Wooden (Box of 100)</ProductName>
+        <Quantity>20</Quantity>
+        <Unit>box</Unit>
+        <UnitPrice>3.50</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>70.00</NetAmount>
+        <LotNumber>TDW-250115-L</LotNumber>
+        <ExpiryDate>2030-06-30</ExpiryDate>
+        <EanCode>5060412787054</EanCode>
+        <Ean128Code>(01)05060412787054(17)300630(10)TDW-250115-L</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-3019</ProductCode>
+        <ProductName>Disposable Aprons Blue (Roll of 200)</ProductName>
+        <Quantity>10</Quantity>
+        <Unit>roll</Unit>
+        <UnitPrice>14.00</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>140.00</NetAmount>
+        <LotNumber>DAB-250203-M</LotNumber>
+        <ExpiryDate>2029-05-31</ExpiryDate>
+        <EanCode>5060412783198</EanCode>
+        <Ean128Code>(01)05060412783198(17)290531(10)DAB-250203-M</Ean128Code>
+      </Item>
+      <Item>
+        <ProductCode>PW-8002</ProductCode>
+        <ProductName>Saline Solution 0.9% Sterile 500ml</ProductName>
+        <Quantity>30</Quantity>
+        <Unit>btl</Unit>
+        <UnitPrice>5.00</UnitPrice>
+        <VatRate>20%</VatRate>
+        <NetAmount>150.00</NetAmount>
+        <LotNumber>SAL-250120-N</LotNumber>
+        <ExpiryDate>2027-12-31</ExpiryDate>
+        <EanCode>5060412788020</EanCode>
+        <Ean128Code>(01)05060412788020(17)271231(10)SAL-250120-N</Ean128Code>
+      </Item>
+    </Items>
+  </Invoice>
 </Document>
