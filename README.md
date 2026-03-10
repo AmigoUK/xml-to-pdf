@@ -46,6 +46,152 @@ python xml_invoice_to_pdf.py invoice.xml --config configs/default.json
 python xml_invoice_to_pdf.py --gui
 ```
 
+## Supported Languages
+
+Pre-built configs are included in `configs/`:
+
+| Config | Language | Example XML tags |
+|---|---|---|
+| `british_english.json` | English (default) | `SupplierName`, `InvoiceNumber`, `ProductCode` |
+| `polish.json` | Polish | `DostawcaNazwa`, `FakturaNumer`, `TowarKod` |
+| `german.json` | German | `LieferantName`, `Rechnungsnummer`, `ArtikelNr` |
+| `french.json` | French | `FournisseurNom`, `NumeroFacture`, `CodeArticle` |
+| `spanish.json` | Spanish | `ProveedorNombre`, `NumeroFactura`, `CodigoProducto` |
+| `italian.json` | Italian | `FornitoreNome`, `NumeroFattura`, `CodiceProdotto` |
+| `dutch.json` | Dutch | `LeverancierNaam`, `Factuurnummer`, `ArtikelCode` |
+
+## Adding Your Own Language
+
+To support a new XML schema or language, create a JSON config file in `configs/`. Use any existing config as a starting point:
+
+1. **Copy a template** — duplicate `configs/british_english.json` and rename it (e.g. `configs/portuguese.json`).
+
+2. **Set the name** — change `"name"` to identify your config.
+
+3. **Set XPath expressions** — these tell the parser where to find data in your XML:
+   - `"header_xpath"` — path to the element containing invoice header fields (supplier, buyer, dates, totals)
+   - `"item_xpath"` — path to each repeating line item element
+
+   For example, if your XML looks like:
+   ```xml
+   <Documento>
+     <Cabecalho>
+       <NomeFornecedor>...</NomeFornecedor>
+     </Cabecalho>
+     <Itens>
+       <Item>...</Item>
+     </Itens>
+   </Documento>
+   ```
+   Then set:
+   ```json
+   "header_xpath": ".//Cabecalho",
+   "item_xpath": ".//Item"
+   ```
+
+4. **Map each field** — in `"mappings"`, set the value for each slot to the XML tag name used in your invoice. The left side (slot) is fixed, the right side (XML tag) is what you change:
+
+   ```json
+   {
+     "name": "portuguese",
+     "mappings": {
+       "supplier_name": "NomeFornecedor",
+       "supplier_street": "RuaFornecedor",
+       "supplier_city": "CidadeFornecedor",
+       "supplier_postal_code": "CodigoPostalFornecedor",
+       "supplier_nip": "NIFFornecedor",
+       "buyer_name": "NomeComprador",
+       "buyer_street": "RuaComprador",
+       "buyer_city": "CidadeComprador",
+       "buyer_postal_code": "CodigoPostalComprador",
+       "buyer_nip": "NIFComprador",
+       "invoice_number": "NumeroFatura",
+       "issue_date": "DataEmissao",
+       "due_date": "DataVencimento",
+       "payment_type": "MetodoPagamento",
+       "currency": "Moeda",
+       "delivery_note": "GuiaRemessa",
+       "net_total": "TotalLiquido",
+       "vat_total": "TotalIVA",
+       "gross_total": "TotalBruto",
+       "item_code": "CodigoProduto",
+       "item_name": "NomeProduto",
+       "item_qty": "Quantidade",
+       "item_unit": "Unidade",
+       "item_unit_price": "PrecoUnitario",
+       "item_vat_rate": "TaxaIVA",
+       "item_net_total": "ValorLiquido",
+       "batch_product_name": "NomeProduto",
+       "batch_lot_number": "NumeroLote",
+       "batch_expiry_date": "DataValidade",
+       "barcode_ean128": "CodigoEan128",
+       "barcode_ean": "CodigoEan",
+       "barcode_product_name": "NomeProduto",
+       "barcode_product_code": "CodigoProduto",
+       "barcode_batch": "NumeroLote",
+       "barcode_expiry": "DataValidade"
+     },
+     "include_barcodes": true,
+     "font_dir": null,
+     "header_xpath": ".//Cabecalho",
+     "item_xpath": ".//Item"
+   }
+   ```
+
+5. **Use your config**:
+   ```bash
+   python xml_invoice_to_pdf.py invoice.xml --config configs/portuguese.json
+   ```
+
+### Available mapping slots
+
+| Slot | Description |
+|---|---|
+| **Supplier** | |
+| `supplier_name` | Company name |
+| `supplier_street` | Street address |
+| `supplier_city` | City |
+| `supplier_postal_code` | Postal / ZIP code |
+| `supplier_nip` | VAT / tax ID number |
+| **Buyer** | |
+| `buyer_name` | Company name |
+| `buyer_street` | Street address |
+| `buyer_city` | City |
+| `buyer_postal_code` | Postal / ZIP code |
+| `buyer_nip` | VAT / tax ID number |
+| **Invoice details** | |
+| `invoice_number` | Invoice reference number |
+| `issue_date` | Date of issue |
+| `due_date` | Payment due date |
+| `payment_type` | Payment method |
+| `currency` | Currency code (GBP, EUR, etc.) |
+| `delivery_note` | Delivery note reference |
+| **Totals** | |
+| `net_total` | Total excluding VAT |
+| `vat_total` | Total VAT amount |
+| `gross_total` | Total including VAT |
+| **Items table** | |
+| `item_code` | Product / SKU code |
+| `item_name` | Product description |
+| `item_qty` | Quantity |
+| `item_unit` | Unit of measure |
+| `item_unit_price` | Price per unit (net) |
+| `item_vat_rate` | VAT rate percentage |
+| `item_net_total` | Line total (net) |
+| **Batch details** | |
+| `batch_product_name` | Product name (batch table) |
+| `batch_lot_number` | Batch / lot number |
+| `batch_expiry_date` | Expiry / best-before date |
+| **Barcodes** | |
+| `barcode_ean128` | EAN-128 / GS1-128 barcode string |
+| `barcode_ean` | EAN-13 / GTIN code |
+| `barcode_product_name` | Product name (barcode card) |
+| `barcode_product_code` | Product code (barcode card) |
+| `barcode_batch` | Batch number (barcode card) |
+| `barcode_expiry` | Expiry date (barcode card) |
+
+Any slot left out of the mappings will simply be blank on the PDF.
+
 ## Project Structure
 
 ```
