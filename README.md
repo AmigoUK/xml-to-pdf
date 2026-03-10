@@ -46,6 +46,28 @@ python xml_invoice_to_pdf.py invoice.xml --config configs/default.json
 python xml_invoice_to_pdf.py --gui
 ```
 
+## Screenshots
+
+### GUI — Field Mapping
+Load an XML invoice and visually map XML tags to PDF slots. The auto-matcher detects fields across multiple languages. Unmatched fields can be assigned manually via dropdowns.
+
+![Field Mapping GUI](screenshoots/xml-mapping.png)
+
+### PDF Preview — Invoice Page
+Live preview of the generated PDF with supplier/buyer details, date badges, paginated items table, and totals summary.
+
+![PDF Preview](screenshoots/pdf-preview.png)
+
+### Batch & Expiry Details
+Continuation page showing the batch/lot numbers and expiry dates table with a navy header bar indicating the section.
+
+![Batch & Expiry Details](screenshoots/batch-and-exp-date-page.png)
+
+### EAN-128 / GS1-128 Barcodes
+Barcode pages with product details and scannable GS1-128 codes for each invoice item.
+
+![EAN-128 Barcodes](screenshoots/ean-128-gs1-128.png)
+
 ## Supported Languages
 
 Pre-built configs are included in `configs/`:
