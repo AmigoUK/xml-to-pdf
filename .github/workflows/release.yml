@@ -64,15 +64,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows ships the bare .exe: one click, and no permission bit to lose.
           - os: windows-latest
             asset: xml-to-pdf-windows-x64.exe
             built: dist/xml-to-pdf.exe
+            archive: false
+          # Unix binaries ship as tarballs. A release asset carries no POSIX
+          # permissions, so a bare download arrives as -rw-r--r-- and needs
+          # chmod +x; a tarball preserves the executable bit.
           - os: ubuntu-latest
-            asset: xml-to-pdf-linux-x64
+            asset: xml-to-pdf-linux-x64.tar.gz
             built: dist/xml-to-pdf
-          - os: macos-latest
-            asset: xml-to-pdf-macos-arm64
+            archive: true
+          - os: macos-latest          # Apple silicon
+            asset: xml-to-pdf-macos-arm64.tar.gz
             built: dist/xml-to-pdf
+            archive: true
+          - os: macos-13              # Intel
+            asset: xml-to-pdf-macos-x64.tar.gz
+            built: dist/xml-to-pdf
+            archive: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -107,12 +118,21 @@ jobs:
           test -s smoke.pdf || { echo "no PDF produced" >&2; exit 1; }
           echo "Produced $(wc -c < smoke.pdf) bytes"
 
-      - name: Rename for the release
+      - name: Package for the release
         shell: bash
         env:
           BUILT: ${{ matrix.built }}
           ASSET: ${{ matrix.asset }}
-        run: cp "$BUILT" "$ASSET"
+          ARCHIVE: ${{ matrix.archive }}
+        run: |
+          if [ "$ARCHIVE" = "true" ]; then
+            cp "$BUILT" xml-to-pdf
+            chmod +x xml-to-pdf
+            tar -czf "$ASSET" xml-to-pdf
+          else
+            cp "$BUILT" "$ASSET"
+          fi
+          ls -l "$ASSET"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4

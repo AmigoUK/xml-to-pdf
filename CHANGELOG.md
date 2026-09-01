@@ -7,9 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.0] — 2026-09-01
+
+### Added
+- **macOS Intel (x86_64) build.** `macos-latest` is Apple silicon, so Intel Mac
+  users previously had nothing they could run.
+
+### Changed
+- **BREAKING (asset names):** the Unix binaries ship as `.tar.gz` rather than
+  bare files. A GitHub release asset carries no POSIX permissions, so a bare
+  download arrived as `-rw-r--r--` and needed `chmod +x` before it would run;
+  a tarball preserves the executable bit. Windows keeps the bare `.exe`, which
+  has no permission bit to lose. Download URLs for the Unix assets change
+  accordingly.
+
 ### Fixed
 - README: `gh attestation verify` needs GitHub CLI 2.49 or newer; documented
-  the plain-API equivalent for older versions.
+  the plain-API equivalent for older versions. Also explains why the Unix
+  executables have no filename extension.
 
 ## [0.3.0] — 2026-09-01
 
@@ -136,7 +153,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.4.0
 [0.3.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.3.0
 [0.2.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.1.0

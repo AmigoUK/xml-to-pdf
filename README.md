@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.3.0-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.4.0-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -24,9 +24,10 @@ dependencies, no font installation:
 
 | Platform | Asset |
 |---|---|
-| Windows | `xml-to-pdf-windows-x64.exe` |
-| Linux | `xml-to-pdf-linux-x64` |
-| macOS (Apple silicon) | `xml-to-pdf-macos-arm64` |
+| Windows (x64) | `xml-to-pdf-windows-x64.exe` |
+| macOS (Apple silicon) | `xml-to-pdf-macos-arm64.tar.gz` |
+| macOS (Intel) | `xml-to-pdf-macos-x64.tar.gz` |
+| Linux (x64) | `xml-to-pdf-linux-x64.tar.gz` |
 
 DejaVu Sans and all seven language profiles travel inside the executable. Run
 it with no arguments for the GUI, or with a file for the CLI:
@@ -36,10 +37,22 @@ xml-to-pdf-windows-x64.exe invoice.xml
 xml-to-pdf-windows-x64.exe invoice.xml --config polish
 ```
 
+The Unix builds are tarballs because a release asset carries no POSIX
+permissions — a bare download arrives without its executable bit, while a
+tarball keeps it, so there is no `chmod` step:
+
+```bash
+tar -xzf xml-to-pdf-linux-x64.tar.gz
+./xml-to-pdf invoice.xml
+```
+
+Unix executables carry no filename extension by design: the executable bit and
+the file header identify a program, not its name. `.exe` is a Windows
+convention.
+
 Profiles can be named rather than pathed (`--config polish`). Dropping your own
 `configs/*.json` or `DejaVuSans*.ttf` next to the executable overrides the
-bundled ones. On macOS and Linux, mark the file executable first:
-`chmod +x xml-to-pdf-linux-x64`.
+bundled ones.
 
 ### Verifying a download
 
@@ -78,7 +91,7 @@ requires a notarised Apple Developer ID. Verify the attestation above, then:
 
 - **Windows** — "More info" → "Run anyway".
 - **macOS** — right-click → "Open", or clear the quarantine flag on that one
-  file: `xattr -d com.apple.quarantine xml-to-pdf-macos-arm64`.
+  file: `xattr -d com.apple.quarantine xml-to-pdf`.
 
 Do not turn SmartScreen or Gatekeeper off; the per-file confirmation is all
 that is needed.
