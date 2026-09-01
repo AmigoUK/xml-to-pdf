@@ -55,39 +55,73 @@ CONT_HEADER_H = 20 * mm
 CONT_TOP_Y = H - CONT_HEADER_H - 18 * mm
 TOTALS_BLOCK_H = 50 * mm
 
+# ── Barcode page layout ──────────────────────────────────────
+BARCODE_HEADER_H = 20 * mm
+BARCODE_TOP_Y = H - BARCODE_HEADER_H - 18 * mm
+BARCODE_CARD_H = 40 * mm
+BARCODE_CARD_GAP = 3 * mm
+BARCODE_BOTTOM_LIMIT = 30 * mm
+
+
+# Faces the renderer actually draws with. The italic ones are a bonus: nothing in
+# the layout uses them, so a Debian fonts-dejavu-core install (Regular + Bold only)
+# must be enough to produce a PDF.
+REQUIRED_FONTS = {
+    "DJV":      "DejaVuSans.ttf",
+    "DJV-Bold": "DejaVuSans-Bold.ttf",
+}
+OPTIONAL_FONTS = {
+    "DJV-Oblique":     "DejaVuSans-Oblique.ttf",
+    "DJV-BoldOblique": "DejaVuSans-BoldOblique.ttf",
+}
+
 
 def register_fonts(font_dir: str | None = None) -> bool:
-    """Register DejaVu Sans fonts with Polish character support (UTF-8)."""
+    """Register DejaVu Sans fonts with full Unicode (incl. Polish) support.
+
+    Raises FileNotFoundError if a required face cannot be found — failing here
+    with a readable message beats crashing later inside ReportLab.
+    """
     search = [font_dir] if font_dir else FONT_SEARCH_PATHS
 
-    font_files = {
-        "DJV":             "DejaVuSans.ttf",
-        "DJV-Bold":        "DejaVuSans-Bold.ttf",
-        "DJV-Oblique":     "DejaVuSans-Oblique.ttf",
-        "DJV-BoldOblique": "DejaVuSans-BoldOblique.ttf",
-    }
-
-    resolved = {}
-    for name, filename in font_files.items():
+    def locate(filename: str) -> str | None:
         for d in search:
+            if not d:
+                continue
             path = os.path.join(d, filename)
             if os.path.isfile(path):
-                resolved[name] = path
-                break
-        if name not in resolved:
-            print(f"UWAGA: Nie znaleziono {filename}")
-            print(f"       Szukano w: {search}")
-            print(f"       Uzyj --font-dir <sciezka> aby wskazac katalog z DejaVuSans*.ttf")
-            return False
+                return path
+        return None
+
+    resolved = {}
+    for name, filename in REQUIRED_FONTS.items():
+        path = locate(filename)
+        if path is None:
+            raise FileNotFoundError(
+                f"Nie znaleziono wymaganej czcionki {filename}.\n"
+                f"Szukano w: {search}\n"
+                f"Uzyj --font-dir <sciezka> aby wskazac katalog z DejaVuSans*.ttf"
+            )
+        resolved[name] = path
+
+    for name, filename in OPTIONAL_FONTS.items():
+        path = locate(filename)
+        if path is not None:
+            resolved[name] = path
 
     for name, path in resolved.items():
         pdfmetrics.registerFont(TTFont(name, path))
 
+    # Fall back to the upright faces when the italic ones are unavailable, so the
+    # family mapping is always complete and ps2tt() can resolve every style.
+    italic = "DJV-Oblique" if "DJV-Oblique" in resolved else "DJV"
+    bold_italic = "DJV-BoldOblique" if "DJV-BoldOblique" in resolved else "DJV-Bold"
+
     from reportlab.lib.fonts import addMapping
     addMapping("DJV", 0, 0, "DJV")
     addMapping("DJV", 1, 0, "DJV-Bold")
-    addMapping("DJV", 0, 1, "DJV-Oblique")
-    addMapping("DJV", 1, 1, "DJV-BoldOblique")
+    addMapping("DJV", 0, 1, italic)
+    addMapping("DJV", 1, 1, bold_italic)
     return True
 
 
@@ -229,12 +263,54 @@ def _build_batch_data(inv: InvoiceData, cfg: MappingConfig):
     return header_row, data_rows, col_widths
 
 
+# ── Table construction (shared by measuring and drawing) ─────
+
+def _build_table(header_row, data_rows, col_widths, orig_start_idx=0, is_batch=False):
+    """Build a fully styled items/batch table (header row + data rows).
+
+    Both the measurement pass and the drawing pass go through here, so the row
+    heights the paginator works with are the heights that end up on the page.
+    """
+    tbl = Table([header_row] + data_rows, colWidths=col_widths)
+
+    pad = 3 if is_batch else 4
+    hdr_fs = 6.5 if is_batch else 7
+    lb_w = 0.8 if is_batch else 1
+    corner = 3 if is_batch else 4
+
+    style_cmds = [
+        ("BACKGROUND",     (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR",      (0, 0), (-1, 0), WHITE),
+        ("FONTNAME",       (0, 0), (-1, 0), "DJV-Bold"),
+        ("FONTSIZE",       (0, 0), (-1, 0), hdr_fs),
+        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",     (0, 0), (-1, -1), pad),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1), pad),
+        ("LEFTPADDING",    (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING",   (0, 0), (-1, -1), 3),
+        ("LINEBELOW",      (0, 0), (-1, 0), lb_w, ACCENT),
+        ("LINEBELOW",      (0, 1), (-1, -1), 0.3, LINE_GRY),
+        ("ROUNDEDCORNERS", [corner, corner, 0, 0]),
+    ]
+    for i in range(len(data_rows)):
+        orig_idx = orig_start_idx + i  # 0-based original data row index
+        tbl_row = i + 1               # row in sub-table (0 = header)
+        if (orig_idx + 1) % 2 == 0:   # even table-row index in original
+            style_cmds.append(("BACKGROUND", (0, tbl_row), (-1, tbl_row), ROW_ALT))
+    tbl.setStyle(TableStyle(style_cmds))
+    return tbl
+
+
 # ── Measurement & splitting ──────────────────────────────────
 
-def _measure_row_heights(header_row, data_rows, col_widths, table_width):
-    """Wrap a temporary table and return per-row heights (header + data)."""
-    all_rows = [header_row] + data_rows
-    tbl = Table(all_rows, colWidths=col_widths)
+def _measure_row_heights(header_row, data_rows, col_widths, table_width, is_batch=False):
+    """Wrap a temporary table and return per-row heights (header + data).
+
+    The table is styled exactly as it will be drawn — paddings and header font
+    size change how cells wrap, so measuring an unstyled table would hand the
+    splitter heights that do not match reality.
+    """
+    tbl = _build_table(header_row, data_rows, col_widths, 0, is_batch)
     tbl.wrap(table_width, 9999)
     return list(tbl._rowHeights)
 
@@ -272,34 +348,7 @@ def _split_table_rows(row_heights, header_h, first_avail_h, cont_avail_h):
 def _draw_table_chunk(c, header_row, data_rows, col_widths, y_top,
                       orig_start_idx, is_batch=False):
     """Draw a sub-table (header + data_rows slice) at y_top. Returns height drawn."""
-    all_rows = [header_row] + data_rows
-    tbl = Table(all_rows, colWidths=col_widths)
-
-    pad = 3 if is_batch else 4
-    hdr_fs = 6.5 if is_batch else 7
-    lb_w = 0.8 if is_batch else 1
-    corner = 3 if is_batch else 4
-
-    style_cmds = [
-        ("BACKGROUND",     (0, 0), (-1, 0), NAVY),
-        ("TEXTCOLOR",      (0, 0), (-1, 0), WHITE),
-        ("FONTNAME",       (0, 0), (-1, 0), "DJV-Bold"),
-        ("FONTSIZE",       (0, 0), (-1, 0), hdr_fs),
-        ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",     (0, 0), (-1, -1), pad),
-        ("BOTTOMPADDING",  (0, 0), (-1, -1), pad),
-        ("LEFTPADDING",    (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING",   (0, 0), (-1, -1), 3),
-        ("LINEBELOW",      (0, 0), (-1, 0), lb_w, ACCENT),
-        ("LINEBELOW",      (0, 1), (-1, -1), 0.3, LINE_GRY),
-        ("ROUNDEDCORNERS", [corner, corner, 0, 0]),
-    ]
-    for i in range(len(data_rows)):
-        orig_idx = orig_start_idx + i  # 0-based original data row index
-        tbl_row = i + 1               # row in sub-table (0 = header)
-        if (orig_idx + 1) % 2 == 0:   # even table-row index in original
-            style_cmds.append(("BACKGROUND", (0, tbl_row), (-1, tbl_row), ROW_ALT))
-    tbl.setStyle(TableStyle(style_cmds))
+    tbl = _build_table(header_row, data_rows, col_widths, orig_start_idx, is_batch)
 
     table_width = W - 40 * mm
     _, tbl_h = tbl.wrap(table_width, 9999)
@@ -365,7 +414,8 @@ def _count_content_pages(inv: InvoiceData, cfg: MappingConfig):
     # Batch table
     batch_label_h = 8 * mm
     batch_header, batch_rows, batch_cols = _build_batch_data(inv, cfg)
-    batch_rh = _measure_row_heights(batch_header, batch_rows, batch_cols, table_width)
+    batch_rh = _measure_row_heights(batch_header, batch_rows, batch_cols, table_width,
+                                    is_batch=True)
     batch_header_h = batch_rh[0]
     batch_data_rh = batch_rh[1:]
 
@@ -563,7 +613,8 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
     batch_label_h = 8 * mm
 
     batch_header, batch_rows, batch_cols = _build_batch_data(inv, cfg)
-    batch_rh = _measure_row_heights(batch_header, batch_rows, batch_cols, table_width)
+    batch_rh = _measure_row_heights(batch_header, batch_rows, batch_cols, table_width,
+                                    is_batch=True)
     batch_header_h = batch_rh[0]
     batch_data_rh = batch_rh[1:]
 
@@ -611,25 +662,45 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
     return page_num
 
 
+def _coded_items(inv: InvoiceData, cfg: MappingConfig) -> list[tuple[int, object]]:
+    """Items carrying an EAN-128 code, paired with their original 1-based number."""
+    return [(idx, item) for idx, item in enumerate(inv.items, 1)
+            if _ival(item, cfg, "barcode_ean128")]
+
+
+def barcode_cards_per_page() -> int:
+    """How many cards fit on a barcode page, derived from the layout constants.
+
+    Mirrors the page-break rule in draw_barcode_pages() so the page count and the
+    drawing can never disagree.
+    """
+    n = 0
+    y = BARCODE_TOP_Y
+    while True:
+        n += 1
+        y -= BARCODE_CARD_H + BARCODE_CARD_GAP
+        if y - BARCODE_CARD_H < BARCODE_BOTTOM_LIMIT:
+            return n
+
+
 def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig,
                        total_pages: int, start_page_num: int = 2):
-    """Draw EAN-128 / GS1-128 barcode pages for each item."""
+    """Draw EAN-128 / GS1-128 barcode pages for the items that carry a code."""
 
-    # Check if any items have EAN-128 codes
-    has_barcodes = any(_ival(item, cfg, "barcode_ean128") for item in inv.items)
-    if not has_barcodes:
+    coded = _coded_items(inv, cfg)
+    if not coded:
         return
 
     c.showPage()
     page_num = start_page_num
     margin_x = 20 * mm
     card_w = W - 40 * mm
-    card_h = 40 * mm
-    gap = 3 * mm
+    card_h = BARCODE_CARD_H
+    gap = BARCODE_CARD_GAP
     inv_num = _hval(inv, cfg, "invoice_number")
 
     def draw_barcode_header(title_suffix=""):
-        bar_h2 = 20 * mm
+        bar_h2 = BARCODE_HEADER_H
         c.setFillColor(NAVY)
         c.rect(0, H - bar_h2, W, bar_h2, fill=1, stroke=0)
         c.setFillColor(WHITE)
@@ -639,17 +710,14 @@ def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig,
         c.drawString(20 * mm, H - 14 * mm, label)
         c.setFillColor(ACCENT)
         c.rect(0, H - bar_h2 - 2.5, W, 2.5, fill=1, stroke=0)
-        return H - bar_h2 - 18 * mm
+        return BARCODE_TOP_Y
 
     y_cursor = draw_barcode_header()
 
     bc_name_style = ParagraphStyle("BcName", fontName=FONT_B, fontSize=10, leading=12, textColor=DARK_TXT)
 
-    for idx, item in enumerate(inv.items, 1):
+    for pos, (idx, item) in enumerate(coded):
         ean128 = _ival(item, cfg, "barcode_ean128")
-        if not ean128:
-            continue
-
         ean    = _ival(item, cfg, "barcode_ean")
         name   = _ival(item, cfg, "barcode_product_name")
         item_code = _ival(item, cfg, "barcode_product_code")
@@ -690,8 +758,8 @@ def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig,
 
         y_cursor -= (card_h + gap)
 
-        # New page if no room
-        if y_cursor - card_h < 30 * mm and idx < len(inv.items):
+        # New page if no room — only when another card still has to be drawn
+        if y_cursor - card_h < BARCODE_BOTTOM_LIMIT and pos < len(coded) - 1:
             draw_footer(c, inv, cfg, page_num, total_pages)
             c.showPage()
             page_num += 1
@@ -738,9 +806,9 @@ def xml_to_pdf(xml_path: str, output_path: str | None = None,
     content_pages = _count_content_pages(inv, mapping_config)
     barcode_pages = 0
     if mapping_config.include_barcodes:
-        barcode_count = sum(1 for item in inv.items if _ival(item, mapping_config, "barcode_ean128"))
+        barcode_count = len(_coded_items(inv, mapping_config))
         if barcode_count > 0:
-            barcode_pages = math.ceil(barcode_count / 5)
+            barcode_pages = math.ceil(barcode_count / barcode_cards_per_page())
     total_pages = content_pages + barcode_pages
 
     c = canvas.Canvas(output_path, pagesize=A4)
