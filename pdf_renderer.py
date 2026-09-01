@@ -671,7 +671,7 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
     if wz:
         c.setFillColor(MID_GRAY)
         c.setFont(FONT, 8)
-        c.drawString(20 * mm, y_wz, f"Delivery Note (WZ): {wz}")
+        c.drawString(20 * mm, y_wz, f"Delivery Note: {wz}")
 
     # ── Paginated items table ────────────────────────────
     table_width = W - 40 * mm

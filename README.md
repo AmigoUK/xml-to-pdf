@@ -2,12 +2,17 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
+[![version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+
 ## Features
 
 - Converts XML invoice data into clean, multi-page PDF reports
 - Items and batch tables automatically paginate across pages with repeated headers
-- EAN-128 / GS1-128 barcode pages for each invoice item
+- Conformant EAN-128 / GS1-128 barcode pages for each invoice item (FNC1-prefixed
+  AI data, with the parenthesised human-readable form printed below the symbol)
 - Configurable field mapping — supports different XML schemas via JSON config files
+- Namespaced documents (a default `xmlns` on the root, as UBL uses) are supported
+- Tolerant amount parsing: `1,50`, `1 234,56`, `1.234,56` and `1,234.56` all work
 - GUI mode (CustomTkinter) for visual field mapping and one-click PDF generation
 - CLI mode for single-file or batch conversion
 
@@ -17,7 +22,16 @@ A Python tool for exporting XML invoice files to professionally formatted PDF do
 pip install -r requirements.txt
 ```
 
-DejaVu Sans fonts are required for Polish character support. Place `DejaVuSans*.ttf` files in the project directory or use `--font-dir` to specify their location.
+DejaVu Sans is required for full Unicode (including Polish) support. Only
+`DejaVuSans.ttf` and `DejaVuSans-Bold.ttf` are needed — the italic faces are
+used if present but never required. On Debian/Ubuntu:
+
+```bash
+sudo apt install fonts-dejavu-core
+```
+
+Otherwise place the `.ttf` files in the project directory, or point `--font-dir`
+at them.
 
 ## Usage
 
@@ -37,8 +51,14 @@ python xml_invoice_to_pdf.py *.xml
 python xml_invoice_to_pdf.py invoice.xml --no-barcodes
 
 # Use a custom field mapping config
-python xml_invoice_to_pdf.py invoice.xml --config configs/default.json
+python xml_invoice_to_pdf.py invoice.xml --config configs/polish.json
+
+# Show the version
+python xml_invoice_to_pdf.py --version
 ```
+
+`--no-barcodes` overrides whatever the config says; without it, the config's own
+`include_barcodes` setting is respected.
 
 ### GUI
 
@@ -218,11 +238,34 @@ Any slot left out of the mappings will simply be blank on the PDF.
 
 ```
 xml_invoice_to_pdf.py  — CLI entry point
-pdf_renderer.py        — PDF drawing and pagination logic
+pdf_renderer.py        — PDF drawing, pagination, amount parsing, GS1-128 encoding
 xml_parser.py          — XML invoice parsing and field discovery
 mapping.py             — Field mapping configuration and auto-matching
 gui.py                 — CustomTkinter GUI
 preview.py             — PDF preview helper
-configs/               — Saved mapping profiles
-requirements.txt       — Python dependencies
+__about__.py           — Version constant
+configs/               — Saved mapping profiles (one per language)
+tests/                 — pytest suite
+example_invoice.xml    — Sample British English invoice
+screenshoots/          — README screenshots
+requirements.txt       — Runtime dependencies
+requirements-dev.txt   — Test dependencies
+CHANGELOG.md           — Release history
+```
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests/
+```
+
+The suite checks the generated PDFs rather than just the code paths: word
+bounding boxes are read back with `pdftotext -bbox` to prove nothing overflows
+a box or the footer, and the barcode pages are rendered at 300 dpi and decoded
+with `zbarimg` to prove the symbols are real GS1-128. Both tools are optional —
+the affected tests skip when they are missing:
+
+```bash
+sudo apt install poppler-utils zbar-tools
 ```
