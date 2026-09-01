@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.3.0] — 2026-09-01
+
+### Added
+- **Build provenance** on every release binary, signed through Sigstore by the
+  GitHub Actions build. A download can be traced to the repository, tag and
+  workflow run that produced it:
+  `gh attestation verify xml-to-pdf-windows-x64.exe --repo AmigoUK/xml-to-pdf`.
+- `SHA256SUMS.txt` attached to each release.
+- README: how to verify a download, and what to do about the "unknown
+  publisher" warning.
+
+### Notes
+- The binaries remain unsigned, so Windows SmartScreen and macOS Gatekeeper
+  still warn on first run. This cannot be fixed for free — SmartScreen goes by
+  publisher reputation, which a self-signed certificate does not earn, and
+  Gatekeeper needs a notarised Apple Developer ID. Provenance plus checksums
+  give verifiable authenticity instead; the per-file "Run anyway" / right-click
+  "Open" confirmation is documented rather than telling anyone to disable the
+  protection.
+
 ## [0.2.0] — 2026-09-01
 
 ### Added
@@ -114,6 +134,7 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.3.0
 [0.2.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.1.0

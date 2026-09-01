@@ -13,6 +13,12 @@ on:
 
 permissions:
   contents: write
+  # Build provenance is signed through Sigstore, which needs an OIDC token.
+  # It does not remove the OS "unknown publisher" prompt — nothing free does —
+  # but it lets anyone verify a download really came from this repo and tag:
+  #   gh attestation verify xml-to-pdf-windows-x64.exe --repo AmigoUK/xml-to-pdf
+  id-token: write
+  attestations: write
 
 jobs:
   # workflow_dispatch input is user-controlled, so it is validated once here and
@@ -108,6 +114,11 @@ jobs:
           ASSET: ${{ matrix.asset }}
         run: cp "$BUILT" "$ASSET"
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.asset }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
@@ -121,3 +132,24 @@ jobs:
           ASSET: ${{ matrix.asset }}
           REPO: ${{ github.repository }}
         run: gh release upload "$TAG" "$ASSET" --clobber --repo "$REPO"
+
+  checksums:
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Write SHA256SUMS.txt
+        run: |
+          find artifacts -type f -exec mv {} . \;
+          sha256sum xml-to-pdf-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: gh release upload "$TAG" SHA256SUMS.txt --clobber --repo "$REPO"

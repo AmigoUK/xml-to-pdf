@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.3.0-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -38,9 +38,39 @@ xml-to-pdf-windows-x64.exe invoice.xml --config polish
 
 Profiles can be named rather than pathed (`--config polish`). Dropping your own
 `configs/*.json` or `DejaVuSans*.ttf` next to the executable overrides the
-bundled ones. On macOS and Linux, mark the file executable first
-(`chmod +x xml-to-pdf-linux-x64`); unsigned builds will need the usual
-Gatekeeper/SmartScreen confirmation.
+bundled ones. On macOS and Linux, mark the file executable first:
+`chmod +x xml-to-pdf-linux-x64`.
+
+### Verifying a download
+
+Every binary is built by GitHub Actions from a tagged commit and carries a
+[Sigstore](https://www.sigstore.dev/) provenance attestation, so you can check
+it really came from this repository rather than trusting the file blindly:
+
+```bash
+gh attestation verify xml-to-pdf-windows-x64.exe --repo AmigoUK/xml-to-pdf
+```
+
+`SHA256SUMS.txt` is attached to the release as well:
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+### The "unknown publisher" warning
+
+The binaries are **not** code-signed, so Windows SmartScreen and macOS
+Gatekeeper will warn on first run. That is expected, and it cannot be removed
+for free: SmartScreen works on publisher reputation (a self-signed certificate
+buys nothing; an OV/EV certificate costs a few hundred a year) and Gatekeeper
+requires a notarised Apple Developer ID. Verify the attestation above, then:
+
+- **Windows** — "More info" → "Run anyway".
+- **macOS** — right-click → "Open", or clear the quarantine flag on that one
+  file: `xattr -d com.apple.quarantine xml-to-pdf-macos-arm64`.
+
+Do not turn SmartScreen or Gatekeeper off; the per-file confirmation is all
+that is needed.
 
 ## Installation
 
