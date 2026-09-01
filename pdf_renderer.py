@@ -203,6 +203,53 @@ def format_amount(value) -> str:
     return f"{parse_amount(value):.2f}"
 
 
+# ── GS1-128 encoding ─────────────────────────────────────────
+
+# Application Identifiers of predefined length (GS1 General Specifications,
+# section 3.2): their data field has a fixed size, so no separator follows it.
+# Identified by the first two digits, which also covers the four-digit AIs in
+# the 31xx-36xx measurement range.
+GS1_PREDEFINED_LENGTH_PREFIXES = frozenset({
+    "00", "01", "02", "03", "04",
+    "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+    "31", "32", "33", "34", "35", "36", "41",
+})
+
+FNC1 = "\xf1"  # ReportLab's escape for the FNC1 function character
+
+_GS1_ELEMENT = re.compile(r"\(\s*(\d{2,4})\s*\)([^(]*)")
+
+
+def gs1_encode(value: str) -> str:
+    """Turn a human-readable GS1 element string into Code 128 input data.
+
+    "(01)05060412780011(17)280930(10)LOT1" becomes FNC1 + "01…" + "17…" + "10LOT1":
+    a conformant GS1-128 payload. The parentheses belong to the human-readable
+    interpretation printed below the symbol, never inside it — encoding them
+    literally (as this code used to) produces a plain Code 128 whose data no GS1
+    system will accept.
+
+    An element with a variable-length data field is terminated with FNC1 when
+    another element follows; predefined-length AIs need no separator. A value
+    with no parentheses is returned untouched, because without the AI
+    delimiters there is no safe way to infer where each field ends.
+    """
+    if not value:
+        return value
+
+    elements = _GS1_ELEMENT.findall(value)
+    if not elements:
+        return value
+
+    parts = [FNC1]
+    for i, (ai, data) in enumerate(elements):
+        parts.append(ai + data.strip())
+        is_last = i == len(elements) - 1
+        if not is_last and ai[:2] not in GS1_PREDEFINED_LENGTH_PREFIXES:
+            parts.append(FNC1)
+    return "".join(parts)
+
+
 def _truncate(text: str, font_name: str, font_size: float, max_w: float) -> str:
     """Return text truncated with '...' if it exceeds max_w."""
     if max_w <= 0:
@@ -816,7 +863,8 @@ def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig,
         # Barcode — right-aligned (compute first to know available text width)
         bc_h = 18 * mm
         card_right = margin_x + card_w - 5 * mm
-        bc = code128.Code128(ean128, barWidth=0.26 * mm, barHeight=bc_h, humanReadable=False)
+        bc = code128.Code128(gs1_encode(ean128), barWidth=0.26 * mm,
+                             barHeight=bc_h, humanReadable=False)
         bc_x = card_right - bc.width
         bc_y = y_cursor - card_h + 6 * mm
         c.setFillColor(DARK_TXT)
