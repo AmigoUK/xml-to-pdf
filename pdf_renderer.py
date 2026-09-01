@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import os
 import re
+from dataclasses import replace
 from xml.sax.saxutils import escape
 
 from reportlab.lib.pagesizes import A4
@@ -853,14 +854,16 @@ def draw_barcode_pages(c, inv: InvoiceData, cfg: MappingConfig,
 
 
 def xml_to_pdf(xml_path: str, output_path: str | None = None,
-               include_barcodes: bool = True, font_dir: str | None = None,
+               include_barcodes: bool | None = None, font_dir: str | None = None,
                mapping_config: MappingConfig | None = None) -> str:
     """Convert an invoice XML file to PDF.
 
     Args:
         xml_path:        Path to the invoice XML file
         output_path:     Output PDF path (default: same dir, .pdf extension)
-        include_barcodes: Whether to generate barcode pages
+        include_barcodes: Whether to generate barcode pages. None (the default)
+                          keeps whatever the mapping config says — passing a
+                          bool here is an explicit override.
         font_dir:        Optional directory containing DejaVuSans*.ttf fonts
         mapping_config:  Optional field mapping configuration
 
@@ -876,10 +879,13 @@ def xml_to_pdf(xml_path: str, output_path: str | None = None,
     if mapping_config is None:
         mapping_config = MappingConfig()
 
-    # Override config options with explicit parameters
+    # Work on a copy: callers (batch conversion, the GUI) reuse one config object
+    # across files, so rendering must not leave its overrides behind.
+    mapping_config = replace(mapping_config)
     if font_dir is not None:
         mapping_config.font_dir = font_dir
-    mapping_config.include_barcodes = include_barcodes
+    if include_barcodes is not None:
+        mapping_config.include_barcodes = include_barcodes
 
     register_fonts(mapping_config.font_dir)
     inv = InvoiceData(xml_path,

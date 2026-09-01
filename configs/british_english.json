@@ -23,6 +23,7 @@
     "item_code": "ProductCode",
     "item_name": "ProductName",
     "item_qty": "Quantity",
+    "item_unit": "Unit",
     "item_unit_price": "UnitPrice",
     "item_vat_rate": "VatRate",
     "item_net_total": "NetAmount",
@@ -31,6 +32,7 @@
     "batch_expiry_date": "ExpiryDate",
     "barcode_ean128": "Ean128Code",
     "barcode_ean": "EanCode",
+    "barcode_product_name": "ProductName",
     "barcode_product_code": "ProductCode",
     "barcode_batch": "LotNumber",
     "barcode_expiry": "ExpiryDate"

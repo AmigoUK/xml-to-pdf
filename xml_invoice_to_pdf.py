@@ -83,7 +83,9 @@ def main():
             out = xml_to_pdf(
                 xml_path,
                 output_path=args.output,
-                include_barcodes=not args.no_barcodes,
+                # None leaves the config's own setting alone; --no-barcodes is
+                # the only reason to override it from the command line.
+                include_barcodes=False if args.no_barcodes else None,
                 font_dir=args.font_dir,
                 mapping_config=mapping_config,
             )

@@ -1,3 +1,4 @@
-reportlab
-customtkinter
-pymupdf
+reportlab>=4.0
+customtkinter>=5.2
+pymupdf>=1.24
+pillow>=10.0

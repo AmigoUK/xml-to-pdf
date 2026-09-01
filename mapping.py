@@ -216,18 +216,46 @@ SLOT_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+# The single source of truth for the default XPaths. load_config() and the GUI
+# both read these instead of repeating literals, which used to leave three
+# different "defaults" in the codebase (.//Header, .//Naglowek, ./Invoice/...).
+DEFAULT_HEADER_XPATH = ".//Header"
+DEFAULT_ITEM_XPATH = "./Invoice/Items/Item"
+
+
 @dataclass
 class MappingConfig:
     name: str = "British English Invoice"
     mappings: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_MAPPINGS))
     include_barcodes: bool = True
     font_dir: str | None = None
-    header_xpath: str = ".//Header"
-    item_xpath: str = "./Invoice/Items/Item"
+    header_xpath: str = DEFAULT_HEADER_XPATH
+    item_xpath: str = DEFAULT_ITEM_XPATH
 
     def get(self, slot_id: str) -> str:
         """Return the XML tag mapped to a slot, or empty string if unmapped."""
         return self.mappings.get(slot_id, "")
+
+
+def resolve_xpaths(schema: DiscoveredSchema | None,
+                   loaded: MappingConfig | None) -> tuple[str, str]:
+    """Decide which header/item XPaths a config being built should carry.
+
+    What the parser discovered in the loaded XML wins, because it describes the
+    document actually being converted. Whatever it could not determine falls
+    back to the config the user selected, and only then to the shared defaults.
+    The GUI used to fall back to hardcoded Polish XPaths here, which silently
+    overrode the XPaths of any config the user had loaded.
+    """
+    header = (schema.header_xpath if schema else "") or ""
+    item = (schema.item_xpath if schema else "") or ""
+
+    if not header:
+        header = (loaded.header_xpath if loaded else "") or DEFAULT_HEADER_XPATH
+    if not item:
+        item = (loaded.item_xpath if loaded else "") or DEFAULT_ITEM_XPATH
+
+    return header, item
 
 
 def auto_match_fields(schema: DiscoveredSchema) -> tuple[dict[str, str], dict[str, str]]:
@@ -342,6 +370,6 @@ def load_config(path: str) -> MappingConfig:
         mappings=data.get("mappings", dict(DEFAULT_MAPPINGS)),
         include_barcodes=data.get("include_barcodes", True),
         font_dir=data.get("font_dir"),
-        header_xpath=data.get("header_xpath", ".//Naglowek"),
-        item_xpath=data.get("item_xpath", ".//Pozycja"),
+        header_xpath=data.get("header_xpath") or DEFAULT_HEADER_XPATH,
+        item_xpath=data.get("item_xpath") or DEFAULT_ITEM_XPATH,
     )
