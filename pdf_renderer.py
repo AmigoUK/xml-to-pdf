@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 from xml.sax.saxutils import escape
 
 from reportlab.lib.pagesizes import A4
@@ -151,6 +152,56 @@ def _ival(item, cfg: MappingConfig, slot: str) -> str:
     return InvoiceData.item_val(item, tag) if tag else ""
 
 
+_NON_NUMERIC = re.compile(r"[^\d,.\-]")
+
+
+def parse_amount(value) -> float:
+    """Parse a monetary value written in any of the formats invoices use.
+
+    Handles the decimal comma (1,50), thousands separators of either kind
+    (1 234,56 / 1,234.56 / 1.234,56), non-breaking spaces and trailing currency
+    codes. Anything unparseable becomes 0.0 — one malformed cell must not cost
+    the user the whole document.
+
+    A lone comma followed by exactly three digits is read as a thousands
+    separator (1,234 -> 1234); one or two trailing digits mean a decimal comma.
+    """
+    if value is None:
+        return 0.0
+
+    text = _NON_NUMERIC.sub("", str(value))
+    if not text.strip("-.,"):
+        return 0.0
+
+    last_dot, last_comma = text.rfind("."), text.rfind(",")
+    if last_dot >= 0 and last_comma >= 0:
+        # Whichever comes last is the decimal separator; the other groups digits.
+        if last_dot > last_comma:
+            text = text.replace(",", "")
+        else:
+            text = text.replace(".", "").replace(",", ".")
+    elif last_comma >= 0:
+        tail = text[last_comma + 1:]
+        if len(tail) == 3 and tail.isdigit():
+            text = text.replace(",", "")
+        else:
+            text = text.replace(",", ".")
+
+    if text.count(".") > 1:
+        # A number has at most one decimal separator, so these all group digits.
+        text = text.replace(".", "")
+
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def format_amount(value) -> str:
+    """Render a monetary value with two decimals, tolerating any input format."""
+    return f"{parse_amount(value):.2f}"
+
+
 def _truncate(text: str, font_name: str, font_size: float, max_w: float) -> str:
     """Return text truncated with '...' if it exceeds max_w."""
     if max_w <= 0:
@@ -165,19 +216,52 @@ def _truncate(text: str, font_name: str, font_size: float, max_w: float) -> str:
     return ellipsis
 
 
+def fit_paragraph(text: str, style: ParagraphStyle, max_w: float,
+                  max_h: float) -> tuple[Paragraph, float]:
+    """Return a Paragraph that genuinely fits in (max_w x max_h), plus its height.
+
+    Overlong text is shortened to the longest prefix that still fits, with an
+    ellipsis marking what was dropped. Clamping the reported height without
+    shortening the text (the previous behaviour) only hid the overflow: the
+    surplus lines were still drawn, on top of whatever came next.
+    """
+    if max_w <= 0:
+        max_w = 1
+    text = str(text)
+
+    para = Paragraph(escape(text), style)
+    _, height = para.wrap(max_w, max_h)
+    if height <= max_h:
+        return para, height
+
+    lo, hi = 0, len(text)
+    best: tuple[Paragraph, float] | None = None
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        candidate = Paragraph(escape(text[:mid].rstrip() + "…"), style)
+        _, cand_h = candidate.wrap(max_w, max_h)
+        if cand_h <= max_h:
+            best = (candidate, cand_h)
+            lo = mid + 1
+        else:
+            hi = mid - 1
+
+    if best is None:
+        # Not even an ellipsis fits — draw nothing rather than overflow.
+        empty = Paragraph("", style)
+        _, empty_h = empty.wrap(max_w, max_h)
+        return empty, min(empty_h, max_h)
+    return best
+
+
 def draw_para(c, text: str, x: float, y_top: float, max_w: float,
               style: ParagraphStyle, max_h: float = 72) -> float:
     """Draw wrapped text as a Paragraph anchored at top-left (x, y_top).
 
-    Returns the actual height used.
+    Text too long for max_h is shortened with an ellipsis, so the drawn block
+    never reaches outside the box. Returns the height actually used.
     """
-    if max_w <= 0:
-        max_w = 1
-    p = Paragraph(escape(str(text)), style)
-    pw, ph = p.wrap(max_w, max_h)
-    # Clip to max_h
-    if ph > max_h:
-        ph = max_h
+    p, ph = fit_paragraph(text, style, max_w, max_h)
     p.drawOn(c, x, y_top - ph)
     return ph
 
@@ -228,9 +312,9 @@ def _build_items_data(inv: InvoiceData, cfg: MappingConfig):
             Paragraph(_ival(item, cfg, "item_name"), cs),
             Paragraph(_ival(item, cfg, "item_qty"), cs_c),
             Paragraph(_ival(item, cfg, "item_unit"), cs_c),
-            Paragraph(f"{float(_ival(item, cfg, 'item_unit_price') or 0):.2f}", cs_r),
+            Paragraph(format_amount(_ival(item, cfg, "item_unit_price")), cs_r),
             Paragraph(_ival(item, cfg, "item_vat_rate"), cs_c),
-            Paragraph(f"{float(_ival(item, cfg, 'item_net_total') or 0):.2f}", cs_r),
+            Paragraph(format_amount(_ival(item, cfg, "item_net_total")), cs_r),
         ])
 
     col_widths = [8*mm, 18*mm, 60*mm, 12*mm, 12*mm, 22*mm, 14*mm, 25*mm]
@@ -463,33 +547,33 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
     c.rect(0, H - bar_h - 3, W, 3, fill=1, stroke=0)
 
     # ── Date badges ─────────────────────────────────────
+    # Four badges share the printable width. The currency badge used to be
+    # right-aligned at a fixed 52mm width, which landed it on top of the payment
+    # badge; the width is now derived from the count so they cannot collide.
     y_badges = H - bar_h - 28 * mm
-    badge_w, badge_h = 52 * mm, 16 * mm
+    badge_h = 16 * mm
+    badge_gap = 6 * mm
 
     badges = [
-        ("Issue Date",  _hval(inv, cfg, "issue_date")),
-        ("Due Date",    _hval(inv, cfg, "due_date")),
-        ("Payment",     _hval(inv, cfg, "payment_type")),
+        ("Issue Date", _hval(inv, cfg, "issue_date")),
+        ("Due Date",   _hval(inv, cfg, "due_date")),
+        ("Payment",    _hval(inv, cfg, "payment_type")),
+        ("Currency",   _hval(inv, cfg, "currency")),
     ]
+    badge_w = (W - 40 * mm - badge_gap * (len(badges) - 1)) / len(badges)
+    badge_text_w = badge_w - 8 * mm
+
     for i, (label, value) in enumerate(badges):
-        bx = 20 * mm + i * (badge_w + 8 * mm)
+        bx = 20 * mm + i * (badge_w + badge_gap)
         draw_rounded_rect(c, bx, y_badges, badge_w, badge_h, 3, fill_color=LIGHT_BG)
         c.setFillColor(MID_GRAY)
         c.setFont(FONT, 7)
-        c.drawString(bx + 4 * mm, y_badges + badge_h - 5.5 * mm, label.upper())
+        c.drawString(bx + 4 * mm, y_badges + badge_h - 5.5 * mm,
+                     _truncate(label.upper(), FONT, 7, badge_text_w))
         c.setFillColor(DARK_TXT)
         c.setFont(FONT_B, 10)
-        c.drawString(bx + 4 * mm, y_badges + 3 * mm, value)
-
-    # Currency badge
-    bx_curr = W - 20 * mm - badge_w
-    draw_rounded_rect(c, bx_curr, y_badges, badge_w, badge_h, 3, fill_color=LIGHT_BG)
-    c.setFillColor(MID_GRAY)
-    c.setFont(FONT, 7)
-    c.drawString(bx_curr + 4 * mm, y_badges + badge_h - 5.5 * mm, "CURRENCY")
-    c.setFillColor(DARK_TXT)
-    c.setFont(FONT_B, 10)
-    c.drawString(bx_curr + 4 * mm, y_badges + 3 * mm, _hval(inv, cfg, "currency"))
+        c.drawString(bx + 4 * mm, y_badges + 3 * mm,
+                     _truncate(value, FONT_B, 10, badge_text_w))
 
     # ── Supplier / Buyer boxes ──────────────────────────
     y_boxes = y_badges - 42 * mm
@@ -591,13 +675,13 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
     c.drawString(tx + 5 * mm, y_tot + 2 * mm, "Net Total:")
     c.setFillColor(DARK_TXT); c.setFont(FONT, 9)
     c.drawRightString(tx + tw - 5 * mm, y_tot + 2 * mm,
-                      f"{currency} {float(_hval(inv, cfg, 'net_total') or 0):.2f}")
+                      f"{currency} {format_amount(_hval(inv, cfg, 'net_total'))}")
 
     c.setFillColor(MID_GRAY); c.setFont(FONT, 9)
     c.drawString(tx + 5 * mm, y_tot - 6 * mm, "VAT:")
     c.setFillColor(DARK_TXT)
     c.drawRightString(tx + tw - 5 * mm, y_tot - 6 * mm,
-                      f"{currency} {float(_hval(inv, cfg, 'vat_total') or 0):.2f}")
+                      f"{currency} {format_amount(_hval(inv, cfg, 'vat_total'))}")
 
     c.setStrokeColor(ACCENT); c.setLineWidth(1)
     c.line(tx + 5 * mm, y_tot - 12 * mm, tx + tw - 5 * mm, y_tot - 12 * mm)
@@ -606,7 +690,7 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
     c.drawString(tx + 5 * mm, y_tot - 22 * mm, "TOTAL:")
     c.setFillColor(ACCENT); c.setFont(FONT_B, 14)
     c.drawRightString(tx + tw - 5 * mm, y_tot - 22 * mm,
-                      f"{currency} {float(_hval(inv, cfg, 'gross_total') or 0):.2f}")
+                      f"{currency} {format_amount(_hval(inv, cfg, 'gross_total'))}")
 
     # ── Paginated batch / expiry table ───────────────────
     y_cursor = y_tot - 46 * mm
