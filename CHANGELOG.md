@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.5.1] — 2026-09-01
+
+### Fixed
+- **Every field mapped, yet the PDF came out with empty boxes.** Discovery
+  walked the tree, found the real header and listed its tags — so the GUI
+  reported 35/35 — but then emitted a simplified `.//Header` XPath. That
+  resolves to whichever element of that name comes first in the document, so an
+  earlier `<Header>` anywhere in the file (metadata blocks, archived copies)
+  won, `header.find(tag)` returned nothing, and the supplier, buyer, invoice
+  number, dates and totals all rendered blank. Discovery now emits the full
+  path from the root (`./Invoice/Header`), with a positional predicate wherever
+  a tag repeats among its siblings, so the XPath resolves to exactly the element
+  that was read.
+- **A repeating block before `<Items>` was mistaken for the line items.** The
+  first repeating group in breadth-first order won, so a `<Taxes>` or
+  `<Contacts>` block took priority and the items table rendered empty. The
+  richest group now wins, scored by how many fields a member carries.
+- The Polish `Naglowek`/`Pozycja` fast path bypassed both fixes and returned the
+  same ambiguous XPaths; it now goes through the same path builder, and picks
+  the `Naglowek` carrying the most fields.
+
+### Added
+- Tests for the GUI path itself (`tests/test_gui_config.py`), driving a real
+  window headlessly: opening an XML, the config `_build_config()` produces, and
+  a full render through it. This is the seam the bug lived in and no test
+  covered it. They skip where there is no display or no CustomTkinter, and CI
+  now installs xvfb so they run there.
+- Seven document shapes exercised end to end, including the reported one.
+
+### Notes
+- Saved configs keep working. A stored `.//Header` still resolves correctly in
+  an unambiguous document; re-opening the XML in the GUI is what upgrades a
+  profile to the precise path.
+- Verified on reportlab 4.4.10 and 5.0.1, since `requirements.txt` allows both.
+
 ## [0.5.0] — 2026-09-01
 
 ### Added
@@ -176,7 +211,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.1
 [0.5.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.0
 [0.4.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.4.0
 [0.3.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.3.0

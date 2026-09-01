@@ -103,25 +103,39 @@ def _collect_sample_values(element: ET.Element) -> dict[str, str]:
 
 
 def _find_repeating_group(root: ET.Element) -> tuple[ET.Element | None, str | None]:
-    """Find the first element whose children contain a repeating tag (items group).
+    """Find the element group that holds the invoice line items.
 
-    Returns (parent_element, repeating_tag) or (None, None) if not found.
+    Every repeating group in the document is scored and the richest one wins.
+    Taking the first group found in breadth-first order was not good enough: a
+    <Taxes> or <Contacts> block sitting before <Items> would be picked as the
+    line items, and the items table then rendered empty.
+
+    Line items carry far more fields than an incidental repeating block, so the
+    number of leaf tags on a member decides, with the repeat count breaking
+    ties.
+
+    Returns (parent_element, repeating_tag) or (None, None) if there is none.
     """
-    # BFS through the tree
+    best: tuple[int, int, ET.Element, str] | None = None
+
     queue = [root]
     while queue:
         parent = queue.pop(0)
-        child_tags = [child.tag for child in parent]
-        tag_counts = Counter(child_tags)
-        # Find tags that appear more than once
+        tag_counts = Counter(child.tag for child in parent)
         for tag, count in tag_counts.items():
-            if count > 1:
-                return parent, tag
-        # Go deeper
+            if count < 2:
+                continue
+            member = next(child for child in parent if child.tag == tag)
+            score = (len(_collect_leaf_tags(member)), count)
+            if best is None or score > best[:2]:
+                best = (score[0], score[1], parent, tag)
         for child in parent:
-            if len(child) > 0:  # has sub-elements
+            if len(child) > 0:
                 queue.append(child)
-    return None, None
+
+    if best is None:
+        return None, None
+    return best[2], best[3]
 
 
 def discover_fields(xml_path: str) -> DiscoveredSchema:
@@ -134,25 +148,34 @@ def discover_fields(xml_path: str) -> DiscoveredSchema:
     """
     root = parse_invoice_tree(xml_path)
 
-    # Fast path: try known Polish invoice tags
-    header_el = root.find(".//Naglowek")
-    first_item = root.find(".//Pozycja")
+    # Fast path: try known Polish invoice tags. The element with the most fields
+    # wins, and its XPath is built the same unambiguous way as on the generic
+    # path — returning a bare ".//Naglowek" would resolve to whichever element
+    # of that name comes first, which need not be the one read here.
+    naglowki = root.findall(".//Naglowek")
+    pozycje = root.findall(".//Pozycja")
 
-    if header_el is not None and first_item is not None:
+    if naglowki and pozycje:
+        header_el = max(naglowki, key=lambda el: len(_collect_leaf_tags(el)))
+        first_item = pozycje[0]
+
         header_tags = _collect_leaf_tags(header_el)
         item_tags = _collect_leaf_tags(first_item)
-        item_count = len(root.findall(".//Pozycja"))
 
         # Collect sample values from both header and first item
         sample_values = _collect_sample_values(header_el)
         sample_values.update(_collect_sample_values(first_item))
 
+        item_parent = _find_parent(root, first_item)
+        item_xpath = (_build_xpath(root, item_parent, "Pozycja")
+                      if item_parent is not None else ".//Pozycja")
+
         return DiscoveredSchema(
-            header_xpath=".//Naglowek",
-            item_xpath=".//Pozycja",
+            header_xpath=_build_element_xpath(root, header_el),
+            item_xpath=item_xpath,
             header_tags=header_tags,
             item_tags=item_tags,
-            item_count=item_count,
+            item_count=len(root.findall(item_xpath)),
             sample_values=sample_values,
         )
 
@@ -200,13 +223,10 @@ def discover_fields(xml_path: str) -> DiscoveredSchema:
 
 
 def _build_xpath(root: ET.Element, parent: ET.Element, child_tag: str) -> str:
-    """Build an XPath string from root to parent/child_tag."""
-    path = _find_path(root, parent)
-    if path:
-        parts = [el.tag for el in path[1:]]  # skip root
-        parts.append(child_tag)
-        return ".//" + "/".join(parts) if not parts[:-1] else "./" + "/".join(parts)
-    return f".//{child_tag}"
+    """Build an XPath selecting parent's children named child_tag."""
+    if parent is root:
+        return f"./{child_tag}"
+    return f"{_build_element_xpath(root, parent)}/{child_tag}"
 
 
 def _find_path(root: ET.Element, target: ET.Element) -> list[ET.Element] | None:
@@ -250,12 +270,27 @@ def _find_header(root: ET.Element, items_parent: ET.Element,
 
 
 def _build_element_xpath(root: ET.Element, target: ET.Element) -> str:
-    """Build an XPath to reach a specific element from root."""
+    """Build an XPath that resolves to exactly this element, and no other.
+
+    The full path from the root is spelled out, with a positional predicate
+    wherever a tag repeats among its siblings. The previous version returned
+    the deepest tag alone (".//Header"), which resolves to whichever element of
+    that name comes first in the document — so a decoy <Header> elsewhere in
+    the file silently won, and every header field on the PDF came out empty
+    even though discovery had read the right element.
+    """
     path = _find_path(root, target)
-    if path and len(path) > 1:
-        parts = [el.tag for el in path[1:]]
-        return ".//" + parts[-1]  # simplified xpath using deepest tag
-    return f".//{target.tag}"
+    if not path or len(path) < 2:
+        return f".//{target.tag}"
+
+    parts = []
+    for parent, child in zip(path, path[1:]):
+        siblings = [c for c in parent if c.tag == child.tag]
+        if len(siblings) > 1:
+            parts.append(f"{child.tag}[{siblings.index(child) + 1}]")
+        else:
+            parts.append(child.tag)
+    return "./" + "/".join(parts)
 
 
 def _find_parent(root: ET.Element, target: ET.Element) -> ET.Element | None:

@@ -52,7 +52,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y poppler-utils zbar-tools fonts-dejavu-core python3-tk
+          sudo apt-get install -y poppler-utils zbar-tools fonts-dejavu-core \
+            python3-tk xvfb
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
       - name: Run the test suite

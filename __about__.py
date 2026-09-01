@@ -1,6 +1,6 @@
 """Project identity: version and the credit footer shown in the UI."""
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 AUTHOR = "Tomasz 'Amigo' Lewandowski"
 CONTACT_EMAIL = "dev@attv.uk"
