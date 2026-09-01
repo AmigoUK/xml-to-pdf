@@ -10,13 +10,9 @@ from __future__ import annotations
 import os
 import sys
 
-# Auto-relaunch with venv Python if running under system Python and venv exists
-_VENV_PYTHON = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python3")
-if (
-    os.path.isfile(_VENV_PYTHON)
-    and os.path.realpath(sys.executable) != os.path.realpath(_VENV_PYTHON)
-):
-    os.execv(_VENV_PYTHON, [_VENV_PYTHON] + sys.argv)
+from paths import config_dirs, maybe_reexec_in_venv, writable_config_dir
+
+maybe_reexec_in_venv()
 
 import tempfile
 import threading
@@ -33,7 +29,8 @@ from mapping import (
 from pdf_renderer import xml_to_pdf
 from preview import HAS_PYMUPDF, HAS_PIL, render_pdf_page, get_page_count, open_in_viewer
 
-CONFIGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs")
+# Where new profiles are saved; config_dirs() is what gets listed.
+CONFIGS_DIR = writable_config_dir()
 NONE_TAG = "(none)"
 HEADER_SEPARATOR = "── Header ──"
 ITEM_SEPARATOR = "── Item ──"
@@ -89,12 +86,23 @@ class App(ctk.CTk):
         self.config_menu.pack(side="left", padx=6)
 
     def _list_configs(self) -> list[str]:
+        """List profiles from every config directory, nearest first, deduplicated."""
         configs = ["Default"]
-        if os.path.isdir(CONFIGS_DIR):
-            for f in sorted(os.listdir(CONFIGS_DIR)):
-                if f.endswith(".json"):
+        for directory in config_dirs():
+            if not os.path.isdir(directory):
+                continue
+            for f in sorted(os.listdir(directory)):
+                if f.endswith(".json") and f[:-5] not in configs:
                     configs.append(f[:-5])
         return configs
+
+    def _find_config(self, name: str) -> str | None:
+        """Resolve a profile name to a file, preferring the nearest directory."""
+        for directory in config_dirs():
+            path = os.path.join(directory, f"{name}.json")
+            if os.path.isfile(path):
+                return path
+        return None
 
     def _refresh_config_menu(self):
         values = self._list_configs()
@@ -554,8 +562,8 @@ class App(ctk.CTk):
         if value == "Default":
             config = MappingConfig()
         else:
-            path = os.path.join(CONFIGS_DIR, f"{value}.json")
-            if not os.path.isfile(path):
+            path = self._find_config(value)
+            if path is None:
                 return
             try:
                 config = load_config(path)

@@ -107,3 +107,34 @@ def test_load_config_of_a_file_without_xpaths_uses_the_dataclass_defaults(tmp_pa
     cfg = load_config(str(path))
     assert cfg.header_xpath == MappingConfig().header_xpath
     assert cfg.item_xpath == MappingConfig().item_xpath
+
+
+# ── resolving a profile by name ───────────────────────────────
+
+def test_config_can_be_selected_by_bare_name():
+    """`--config polish` must work, not just a full path — an .exe user has no
+    configs/ directory next to the executable."""
+    from mapping import resolve_config_path
+
+    path = resolve_config_path("polish")
+    assert path is not None and path.endswith("polish.json")
+
+
+def test_config_name_with_the_json_suffix_also_resolves():
+    from mapping import resolve_config_path
+
+    assert resolve_config_path("polish.json").endswith("polish.json")
+
+
+def test_an_explicit_path_is_returned_unchanged(tmp_path):
+    from mapping import resolve_config_path
+
+    custom = tmp_path / "mine.json"
+    custom.write_text("{}", encoding="utf-8")
+    assert resolve_config_path(str(custom)) == str(custom)
+
+
+def test_an_unknown_name_resolves_to_nothing():
+    from mapping import resolve_config_path
+
+    assert resolve_config_path("klingon") is None

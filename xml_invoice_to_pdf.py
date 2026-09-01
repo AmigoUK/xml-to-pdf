@@ -21,17 +21,17 @@ import argparse
 import os
 import sys
 
-# Auto-relaunch with venv Python if running under system Python and venv exists
-_VENV_PYTHON = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "bin", "python3")
-if (
-    os.path.isfile(_VENV_PYTHON)
-    and os.path.realpath(sys.executable) != os.path.realpath(_VENV_PYTHON)
-):
-    os.execv(_VENV_PYTHON, [_VENV_PYTHON] + sys.argv)
+# Convenience for source checkouts: re-run under ./.venv when there is one.
+# Skipped in a frozen build, where sys.executable is this application.
+from paths import maybe_reexec_in_venv
+
+maybe_reexec_in_venv()
 
 from __about__ import __version__
 from pdf_renderer import xml_to_pdf
-from mapping import MappingConfig, load_config
+from mapping import (
+    MappingConfig, available_configs, load_config, resolve_config_path,
+)
 
 
 def main():
@@ -51,7 +51,9 @@ def main():
                         help="Pomin strone z kodami kreskowymi EAN-128")
     parser.add_argument("--font-dir", help="Katalog z czcionkami DejaVuSans*.ttf")
     parser.add_argument("--gui", action="store_true", help="Uruchom tryb graficzny (GUI)")
-    parser.add_argument("--config", help="Sciezka do pliku konfiguracji JSON z mapowaniem pol")
+    parser.add_argument("--config",
+                        help="Sciezka do pliku konfiguracji JSON lub nazwa profilu "
+                             "(np. 'polish'); profile: configs/*.json")
     parser.add_argument("--version", action="version",
                         version=f"xml-to-pdf {__version__}")
 
@@ -74,8 +76,15 @@ def main():
     # Load mapping config if specified
     mapping_config = None
     if args.config:
+        config_path = resolve_config_path(args.config)
+        if config_path is None:
+            print(f"Blad: nie znaleziono konfiguracji '{args.config}'.",
+                  file=sys.stderr)
+            print(f"       Dostepne profile: {', '.join(available_configs()) or 'brak'}",
+                  file=sys.stderr)
+            sys.exit(1)
         try:
-            mapping_config = load_config(args.config)
+            mapping_config = load_config(config_path)
         except Exception as e:
             print(f"Blad ladowania konfiguracji: {e}", file=sys.stderr)
             sys.exit(1)

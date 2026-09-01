@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.2.0-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -15,6 +15,32 @@ A Python tool for exporting XML invoice files to professionally formatted PDF do
 - Tolerant amount parsing: `1,50`, `1 234,56`, `1.234,56` and `1,234.56` all work
 - GUI mode (CustomTkinter) for visual field mapping and one-click PDF generation
 - CLI mode for single-file or batch conversion
+
+## Download
+
+Ready-to-run executables are attached to every
+[release](https://github.com/AmigoUK/xml-to-pdf/releases) — no Python, no
+dependencies, no font installation:
+
+| Platform | Asset |
+|---|---|
+| Windows | `xml-to-pdf-windows-x64.exe` |
+| Linux | `xml-to-pdf-linux-x64` |
+| macOS (Apple silicon) | `xml-to-pdf-macos-arm64` |
+
+DejaVu Sans and all seven language profiles travel inside the executable. Run
+it with no arguments for the GUI, or with a file for the CLI:
+
+```
+xml-to-pdf-windows-x64.exe invoice.xml
+xml-to-pdf-windows-x64.exe invoice.xml --config polish
+```
+
+Profiles can be named rather than pathed (`--config polish`). Dropping your own
+`configs/*.json` or `DejaVuSans*.ttf` next to the executable overrides the
+bundled ones. On macOS and Linux, mark the file executable first
+(`chmod +x xml-to-pdf-linux-x64`); unsigned builds will need the usual
+Gatekeeper/SmartScreen confirmation.
 
 ## Installation
 
@@ -244,6 +270,7 @@ mapping.py             — Field mapping configuration and auto-matching
 gui.py                 — CustomTkinter GUI
 preview.py             — PDF preview helper
 __about__.py           — Version constant
+paths.py               — Font/config lookup, from source or a frozen bundle
 configs/               — Saved mapping profiles (one per language)
 tests/                 — pytest suite
 example_invoice.xml    — Sample British English invoice
@@ -251,7 +278,22 @@ screenshoots/          — README screenshots
 requirements.txt       — Runtime dependencies
 requirements-dev.txt   — Test dependencies
 CHANGELOG.md           — Release history
+xml-to-pdf.spec        — PyInstaller build spec
+scripts/fetch_fonts.py — Downloads DejaVu Sans for a bundled build
+.github/workflows/     — Tests, and per-platform release binaries
 ```
+
+## Building an executable yourself
+
+```bash
+pip install pyinstaller
+python scripts/fetch_fonts.py fonts
+pyinstaller --clean --noconfirm xml-to-pdf.spec   # -> dist/xml-to-pdf
+```
+
+PyInstaller does not cross-compile: a Windows `.exe` has to be built on
+Windows. That is what the release workflow does — pushing a `vX.Y.Z` tag runs
+the test suite, then builds and attaches all three binaries.
 
 ## Tests
 

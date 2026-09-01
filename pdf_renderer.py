@@ -23,6 +23,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.graphics.barcode import code128
 
+from paths import font_search_paths
 from xml_parser import InvoiceData
 from mapping import MappingConfig, DEFAULT_MAPPINGS
 
@@ -39,15 +40,9 @@ WHITE    = white
 FONT   = "DJV"
 FONT_B = "DJV-Bold"
 
-FONT_SEARCH_PATHS = [
-    "/usr/share/fonts/truetype/dejavu",
-    "/usr/share/fonts/TTF",
-    "/usr/share/fonts/dejavu",
-    "/Library/Fonts",
-    os.path.expanduser("~/Library/Fonts"),
-    r"C:\Windows\Fonts",
-    os.path.dirname(os.path.abspath(__file__)),
-]
+# Kept for backwards compatibility; paths.font_search_paths() is the live list
+# and additionally covers a frozen bundle's own directory.
+FONT_SEARCH_PATHS = font_search_paths()
 
 W, H = A4
 
@@ -84,7 +79,7 @@ def register_fonts(font_dir: str | None = None) -> bool:
     Raises FileNotFoundError if a required face cannot be found — failing here
     with a readable message beats crashing later inside ReportLab.
     """
-    search = [font_dir] if font_dir else FONT_SEARCH_PATHS
+    search = font_search_paths(font_dir)
 
     def locate(filename: str) -> str | None:
         for d in search:

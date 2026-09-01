@@ -7,3 +7,9 @@ __pycache__/
 .claude/
 .venv/
 .pytest_cache/
+
+# PyInstaller build output; fonts/ is fetched at build time
+build/
+dist/
+fonts/
+*.manifest

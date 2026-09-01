@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.2.0] — 2026-09-01
+
+### Added
+- **Standalone executables** for Windows, Linux and macOS, attached to every
+  release. DejaVu Sans and all seven language profiles are bundled, so there is
+  nothing to install: no Python, no dependencies, no fonts.
+- `xml-to-pdf.spec` (PyInstaller) and `scripts/fetch_fonts.py`, which fetches
+  the DejaVu faces at build time rather than vendoring them into git.
+- `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag runs the test suite,
+  then builds and smoke-tests each platform's binary and uploads it to the
+  release. PyInstaller does not cross-compile, so each one is built on its own
+  runner.
+- `paths.py`, which resolves fonts and configs identically from a source
+  checkout and from a frozen bundle. Files next to the executable take
+  precedence over the bundled copies, so users can substitute their own fonts
+  or mapping profiles without rebuilding.
+- `--config` now accepts a profile name as well as a path (`--config polish`),
+  which is what makes the shipped profiles usable from an executable that has
+  no `configs/` directory beside it. An unknown name lists what is available.
+
+### Fixed
+- The `.venv` auto-relaunch is skipped in a frozen build. There
+  `sys.executable` is the application itself, so a `.venv` directory happening
+  to sit next to the executable would have made it re-exec an unrelated
+  interpreter with the application's arguments.
+- `reportlab.graphics.barcode` loads its symbology modules dynamically, which a
+  static import scan cannot see; the first build died with `No module named
+  reportlab.graphics.barcode.code93`. The spec collects them explicitly.
+- Font lookup no longer depends on `__file__`, which does not point anywhere
+  useful in a one-file bundle.
+
 ## [0.1.0] — 2026-09-01
 
 First versioned release. Everything before this point is untagged history; this
@@ -83,5 +114,6 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.1.0

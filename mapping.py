@@ -11,6 +11,8 @@ import os
 from dataclasses import dataclass, field, asdict
 from typing import TYPE_CHECKING
 
+from paths import config_dirs
+
 if TYPE_CHECKING:
     from xml_parser import DiscoveredSchema
 
@@ -359,6 +361,41 @@ def save_config(path: str, config: MappingConfig) -> None:
     data = asdict(config)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def resolve_config_path(name_or_path: str) -> str | None:
+    """Turn a --config argument into a file path, or None if there is no match.
+
+    An existing path is returned as given. Otherwise the value is treated as a
+    profile name and looked up in the config directories, so `--config polish`
+    works from a frozen executable that has no configs/ folder beside it.
+    """
+    if not name_or_path:
+        return None
+    if os.path.isfile(name_or_path):
+        return name_or_path
+
+    name = name_or_path
+    if name.endswith(".json"):
+        name = name[:-5]
+
+    for directory in config_dirs():
+        candidate = os.path.join(directory, f"{name}.json")
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def available_configs() -> list[str]:
+    """Profile names found in the config directories, nearest first."""
+    names: list[str] = []
+    for directory in config_dirs():
+        if not os.path.isdir(directory):
+            continue
+        for f in sorted(os.listdir(directory)):
+            if f.endswith(".json") and f[:-5] not in names:
+                names.append(f[:-5])
+    return names
 
 
 def load_config(path: str) -> MappingConfig:

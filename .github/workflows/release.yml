@@ -1,0 +1,123 @@
+name: Release binaries
+
+# PyInstaller does not cross-compile, so each platform's executable is built on
+# that platform. Pushing a v* tag builds them and attaches them to the release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and attach binaries to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # workflow_dispatch input is user-controlled, so it is validated once here and
+  # only the checked value is passed on. Downstream jobs never interpolate the
+  # raw input into a shell command or a ref.
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - id: check
+        env:
+          RAW_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          if ! printf '%s' "$RAW_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$'; then
+            echo "Refusing tag '$RAW_TAG': expected a vMAJOR.MINOR.PATCH form." >&2
+            exit 1
+          fi
+          echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils zbar-tools fonts-dejavu-core python3-tk
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run the test suite
+        run: python -m pytest tests/ -q
+
+  build:
+    needs: [resolve, test]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: xml-to-pdf-windows-x64.exe
+            built: dist/xml-to-pdf.exe
+          - os: ubuntu-latest
+            asset: xml-to-pdf-linux-x64
+            built: dist/xml-to-pdf
+          - os: macos-latest
+            asset: xml-to-pdf-macos-arm64
+            built: dist/xml-to-pdf
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # Windows and macOS have no system DejaVu, and the renderer requires it,
+      # so the faces are fetched and bundled into the executable.
+      - name: Fetch DejaVu Sans
+        run: python scripts/fetch_fonts.py fonts
+
+      - name: Build
+        run: pyinstaller --clean --noconfirm xml-to-pdf.spec
+
+      - name: Smoke-test the executable
+        shell: bash
+        env:
+          BUILT: ${{ matrix.built }}
+        run: |
+          "$BUILT" --version
+          "$BUILT" example_invoice.xml -o smoke.pdf --config british_english
+          test -s smoke.pdf || { echo "no PDF produced" >&2; exit 1; }
+          echo "Produced $(wc -c < smoke.pdf) bytes"
+
+      - name: Rename for the release
+        shell: bash
+        env:
+          BUILT: ${{ matrix.built }}
+          ASSET: ${{ matrix.asset }}
+        run: cp "$BUILT" "$ASSET"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          ASSET: ${{ matrix.asset }}
+          REPO: ${{ github.repository }}
+        run: gh release upload "$TAG" "$ASSET" --clobber --repo "$REPO"
