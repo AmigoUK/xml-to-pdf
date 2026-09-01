@@ -80,10 +80,6 @@ jobs:
             asset: xml-to-pdf-macos-arm64.tar.gz
             built: dist/xml-to-pdf
             archive: true
-          - os: macos-13              # Intel
-            asset: xml-to-pdf-macos-x64.tar.gz
-            built: dist/xml-to-pdf
-            archive: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -173,3 +169,63 @@ jobs:
           TAG: ${{ needs.resolve.outputs.tag }}
           REPO: ${{ github.repository }}
         run: gh release upload "$TAG" SHA256SUMS.txt --clobber --repo "$REPO"
+
+  # Intel macOS lives in its own job on purpose. GitHub is retiring the x86_64
+  # macOS images, so this runner can sit queued for a long time or never be
+  # scheduled at all. Keeping it out of `build` means a stuck Intel runner
+  # cannot hold up the other three binaries or the checksums job; it publishes
+  # its own .sha256 alongside its tarball instead of joining SHA256SUMS.txt.
+  build-macos-intel:
+    needs: [resolve, test]
+    runs-on: macos-13
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Fetch DejaVu Sans
+        run: python scripts/fetch_fonts.py fonts
+
+      - name: Build
+        run: pyinstaller --clean --noconfirm xml-to-pdf.spec
+
+      - name: Smoke-test the executable
+        run: |
+          dist/xml-to-pdf --version
+          dist/xml-to-pdf example_invoice.xml -o smoke.pdf --config british_english
+          test -s smoke.pdf || { echo "no PDF produced" >&2; exit 1; }
+
+      - name: Package
+        run: |
+          cp dist/xml-to-pdf xml-to-pdf
+          chmod +x xml-to-pdf
+          tar -czf xml-to-pdf-macos-x64.tar.gz xml-to-pdf
+          shasum -a 256 xml-to-pdf-macos-x64.tar.gz > xml-to-pdf-macos-x64.tar.gz.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: xml-to-pdf-macos-x64.tar.gz
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release upload "$TAG" \
+            xml-to-pdf-macos-x64.tar.gz \
+            xml-to-pdf-macos-x64.tar.gz.sha256 \
+            --clobber --repo "$REPO"

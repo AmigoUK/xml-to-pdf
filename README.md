@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.4.0-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.5.0-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -26,7 +26,7 @@ dependencies, no font installation:
 |---|---|
 | Windows (x64) | `xml-to-pdf-windows-x64.exe` |
 | macOS (Apple silicon) | `xml-to-pdf-macos-arm64.tar.gz` |
-| macOS (Intel) | `xml-to-pdf-macos-x64.tar.gz` |
+| macOS (Intel) | `xml-to-pdf-macos-x64.tar.gz` — best effort, see below |
 | Linux (x64) | `xml-to-pdf-linux-x64.tar.gz` |
 
 DejaVu Sans and all seven language profiles travel inside the executable. Run
@@ -49,6 +49,12 @@ tar -xzf xml-to-pdf-linux-x64.tar.gz
 Unix executables carry no filename extension by design: the executable bit and
 the file header identify a program, not its name. `.exe` is a Windows
 convention.
+
+The Intel macOS binary is built on a best-effort basis: GitHub is retiring its
+x86_64 macOS runners, so that build can be queued for a long time or skipped
+entirely. It is built in a separate job so it never holds up the other three.
+If it is missing from a release, an Intel Mac can still run the tool from
+source (`pip install -r requirements.txt`).
 
 Profiles can be named rather than pathed (`--config polish`). Dropping your own
 `configs/*.json` or `DejaVuSans*.ttf` next to the executable overrides the

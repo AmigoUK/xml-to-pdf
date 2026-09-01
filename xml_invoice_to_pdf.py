@@ -27,7 +27,7 @@ from paths import maybe_reexec_in_venv
 
 maybe_reexec_in_venv()
 
-from __about__ import __version__
+from __about__ import __version__, footer_text
 from pdf_renderer import xml_to_pdf
 from mapping import (
     MappingConfig, available_configs, load_config, resolve_config_path,
@@ -55,7 +55,7 @@ def main():
                         help="Sciezka do pliku konfiguracji JSON lub nazwa profilu "
                              "(np. 'polish'); profile: configs/*.json")
     parser.add_argument("--version", action="version",
-                        version=f"xml-to-pdf {__version__}")
+                        version=f"xml-to-pdf {__version__}\n{footer_text()}")
 
     args = parser.parse_args()
 

@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.5.0] — 2026-09-01
+
+### Added
+- **Credit footer in the GUI**: a small muted line across the bottom of the
+  window — `dev@attv.uk · Project & Development: Tomasz 'Amigo' Lewandowski ·
+  www.attv.uk · GitHub · v0.5.0` — with the email, website and repository as
+  clickable links. Verified rendered in both light and dark appearance modes.
+- The same credit line is printed by `--version`.
+- `__about__.py` gains `footer_segments()` / `footer_text()`, with a test
+  asserting the GitHub link still matches the checkout's actual git remote.
+
+### Changed
+- The Intel macOS build moved into its own best-effort job. GitHub is retiring
+  the x86_64 macOS images, and a queued `macos-13` runner used to block the
+  `checksums` job — which is why v0.4.0 shipped without `SHA256SUMS.txt`. The
+  three main platforms and their checksums no longer wait for it; the Intel job
+  publishes its own `.sha256` beside its tarball.
+
+### Notes
+- The credit footer is deliberately **not** added to the generated PDF. That
+  document is the user's invoice, sent on to their own customers; a developer
+  credit does not belong on it.
+
 ## [0.4.0] — 2026-09-01
 
 ### Added
@@ -153,7 +176,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.0
 [0.4.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.4.0
 [0.3.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.3.0
 [0.2.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.2.0

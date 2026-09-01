@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import sys
 
+from __about__ import SEPARATOR, footer_segments
 from paths import config_dirs, maybe_reexec_in_venv, writable_config_dir
 
 maybe_reexec_in_venv()
@@ -17,6 +18,7 @@ maybe_reexec_in_venv()
 import tempfile
 import threading
 import tkinter as tk
+import webbrowser
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -63,6 +65,7 @@ class App(ctk.CTk):
         self._build_top_bar()
         self._build_tabs()
         self._build_bottom_bar()
+        self._build_footer()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -402,6 +405,39 @@ class App(ctk.CTk):
         ctk.CTkButton(frame, text="Preview", width=80, command=self._generate_preview).pack(side="right", padx=4)
         ctk.CTkButton(frame, text="Generate PDF", width=110,
                       fg_color="#2E86DE", command=self._generate_pdf).pack(side="right", padx=4)
+
+    # ── Credit footer ───────────────────────────────────
+
+    def _build_footer(self):
+        """Small muted credit line across the bottom of the window."""
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.pack(fill="x", padx=12, pady=(0, 8))
+
+        # An inner frame that only takes the width it needs, so pack() centres it.
+        row = ctk.CTkFrame(footer, fg_color="transparent")
+        row.pack()
+
+        muted = ("gray45", "gray60")
+        dim = ("gray70", "gray35")
+        font = ctk.CTkFont(size=11)
+
+        for index, (label, url) in enumerate(footer_segments()):
+            if index:
+                ctk.CTkLabel(row, text=SEPARATOR.strip(), font=font,
+                             text_color=dim).pack(side="left", padx=4)
+            item = ctk.CTkLabel(row, text=label, font=font, text_color=muted)
+            item.pack(side="left")
+            if url:
+                self._make_link(item, url, muted)
+
+    def _make_link(self, widget, url: str, resting_color):
+        """Turn a label into a link: hand cursor, hover highlight, opens the URL."""
+        widget.configure(cursor="hand2")
+        widget.bind("<Button-1>", lambda _event, u=url: webbrowser.open(u))
+        widget.bind("<Enter>",
+                    lambda _e, w=widget: w.configure(text_color=("gray10", "gray90")))
+        widget.bind("<Leave>",
+                    lambda _e, w=widget: w.configure(text_color=resting_color))
 
     # ── Actions ─────────────────────────────────────────
 
