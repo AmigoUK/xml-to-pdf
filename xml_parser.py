@@ -6,9 +6,44 @@ Invoice XML parsing and field discovery.
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass, field
+
+_DOCTYPE = re.compile(rb"<!DOCTYPE", re.IGNORECASE)
+
+
+def _strip_namespaces(root: ET.Element) -> ET.Element:
+    """Drop namespace prefixes from every tag, in place.
+
+    Invoice schemas such as UBL declare a default namespace on the root, which
+    turns every tag into "{urn:...}Header" and makes plain-name XPaths (and the
+    tag names shown in the GUI) miss. Since the mapping works on local names
+    only, flattening the tree once here keeps everything downstream simple.
+    """
+    for el in root.iter():
+        if isinstance(el.tag, str) and el.tag.startswith("{"):
+            el.tag = el.tag.split("}", 1)[1]
+    return root
+
+
+def parse_invoice_tree(xml_path: str) -> ET.Element:
+    """Parse an invoice XML and return its namespace-free root element.
+
+    Documents carrying a DOCTYPE are refused: an invoice has no need for a DTD,
+    and rejecting it here means entity-expansion and external-entity payloads
+    never reach the parser regardless of the Python version in use.
+    """
+    with open(xml_path, "rb") as f:
+        head = f.read(8192)
+    if _DOCTYPE.search(head):
+        raise ValueError(
+            f"Plik {xml_path} zawiera deklaracje DOCTYPE (DTD/ENTITY) — odrzucono. "
+            "Faktury nie wymagaja DTD, a deklaracje encji moga byc zlosliwe."
+        )
+
+    return _strip_namespaces(ET.parse(xml_path).getroot())
 
 
 @dataclass
@@ -27,15 +62,14 @@ class InvoiceData:
 
     def __init__(self, xml_path: str, header_xpath: str = ".//Naglowek",
                  item_xpath: str = ".//Pozycja"):
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        root = parse_invoice_tree(xml_path)
         self.header = root.find(header_xpath)
+        # An invoice with no lines is unusual but legal (a credit note, for
+        # instance), so it renders with empty tables rather than failing.
         self.items = root.findall(item_xpath)
 
         if self.header is None:
             raise ValueError(f"Brak elementu na xpath '{header_xpath}' w {xml_path}")
-        if not self.items:
-            raise ValueError(f"Brak elementow na xpath '{item_xpath}' w {xml_path}")
 
     def h(self, tag: str) -> str:
         """Pobiera wartosc z naglowka faktury."""
@@ -98,8 +132,7 @@ def discover_fields(xml_path: str) -> DiscoveredSchema:
     2. Generic: detect repeating group (items) and header by tree walking
     3. Collect sample values for heuristic matching
     """
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
+    root = parse_invoice_tree(xml_path)
 
     # Fast path: try known Polish invoice tags
     header_el = root.find(".//Naglowek")

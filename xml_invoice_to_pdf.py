@@ -29,6 +29,7 @@ if (
 ):
     os.execv(_VENV_PYTHON, [_VENV_PYTHON] + sys.argv)
 
+from __about__ import __version__
 from pdf_renderer import xml_to_pdf
 from mapping import MappingConfig, load_config
 
@@ -51,6 +52,8 @@ def main():
     parser.add_argument("--font-dir", help="Katalog z czcionkami DejaVuSans*.ttf")
     parser.add_argument("--gui", action="store_true", help="Uruchom tryb graficzny (GUI)")
     parser.add_argument("--config", help="Sciezka do pliku konfiguracji JSON z mapowaniem pol")
+    parser.add_argument("--version", action="version",
+                        version=f"xml-to-pdf {__version__}")
 
     args = parser.parse_args()
 
@@ -83,7 +86,9 @@ def main():
             out = xml_to_pdf(
                 xml_path,
                 output_path=args.output,
-                include_barcodes=not args.no_barcodes,
+                # None leaves the config's own setting alone; --no-barcodes is
+                # the only reason to override it from the command line.
+                include_barcodes=False if args.no_barcodes else None,
                 font_dir=args.font_dir,
                 mapping_config=mapping_config,
             )

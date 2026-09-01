@@ -28,7 +28,7 @@ import customtkinter as ctk
 from xml_parser import InvoiceData, DiscoveredSchema, discover_fields
 from mapping import (
     MappingConfig, SLOT_CATEGORIES, HEADER_SLOTS, ITEM_SLOTS,
-    DEFAULT_MAPPINGS, save_config, load_config, auto_match_fields,
+    DEFAULT_MAPPINGS, save_config, load_config, auto_match_fields, resolve_xpaths,
 )
 from pdf_renderer import xml_to_pdf
 from preview import HAS_PYMUPDF, HAS_PIL, render_pdf_page, get_page_count, open_in_viewer
@@ -53,6 +53,7 @@ class App(ctk.CTk):
         self.xml_path: str | None = None
         self.discovered: dict[str, list[str]] = {"header": [], "item": []}
         self.discovered_schema: DiscoveredSchema | None = None
+        self.loaded_config: MappingConfig | None = None
         self.slot_vars: dict[str, ctk.StringVar] = {}
         self.slot_labels: dict[str, ctk.CTkLabel] = {}
         self.match_reasons: dict[str, str] = {}
@@ -60,6 +61,7 @@ class App(ctk.CTk):
         self.preview_page = 0
         self.preview_page_count = 0
         self._temp_files: list[str] = []
+        self._preview_temp: str | None = None
 
         self._build_top_bar()
         self._build_tabs()
@@ -316,8 +318,8 @@ class App(ctk.CTk):
 
         ctk.CTkButton(nav, text="Refresh Preview", width=120, command=self._refresh_preview).pack(side="left", padx=20)
 
-        if not HAS_PYMUPDF:
-            ctk.CTkButton(nav, text="Open in Viewer", width=120, command=self._open_in_viewer).pack(side="right")
+        ctk.CTkButton(nav, text="Open in Viewer", width=120,
+                      command=self._open_in_viewer).pack(side="right")
 
         # Image area
         self.preview_label = ctk.CTkLabel(self.preview_frame, text="Generate a PDF to see preview here.")
@@ -341,7 +343,9 @@ class App(ctk.CTk):
 
     def _show_preview_page(self):
         if not HAS_PYMUPDF or not HAS_PIL:
-            self.page_label.configure(text="PyMuPDF not available — use 'Open in Viewer'")
+            missing = "PyMuPDF" if not HAS_PYMUPDF else "Pillow"
+            self.page_label.configure(
+                text=f"{missing} not installed — use 'Open in Viewer'")
             return
 
         if not self.preview_pdf_path or not os.path.isfile(self.preview_pdf_path):
@@ -429,12 +433,9 @@ class App(ctk.CTk):
 
         font_dir = self.font_dir_var.get().strip() or None
 
-        # Include discovered XPaths
-        header_xpath = ".//Naglowek"
-        item_xpath = ".//Pozycja"
-        if self.discovered_schema:
-            header_xpath = self.discovered_schema.header_xpath or header_xpath
-            item_xpath = self.discovered_schema.item_xpath or item_xpath
+        # What the XML told us wins; then the loaded config; then the defaults.
+        header_xpath, item_xpath = resolve_xpaths(self.discovered_schema,
+                                                  self.loaded_config)
 
         return MappingConfig(
             name=self.config_var.get(),
@@ -481,10 +482,12 @@ class App(ctk.CTk):
             return
 
         config = self._build_config()
-        tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-        tmp_path = tmp.name
-        tmp.close()
-        self._temp_files.append(tmp_path)
+        if self._preview_temp is None:
+            tmp = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+            self._preview_temp = tmp.name
+            tmp.close()
+            self._temp_files.append(self._preview_temp)
+        tmp_path = self._preview_temp
 
         self.status_label.configure(text="Generating preview...")
         self.update_idletasks()
@@ -561,6 +564,7 @@ class App(ctk.CTk):
                 return
 
         # Apply config to GUI
+        self.loaded_config = config
         self.barcodes_var.set(config.include_barcodes)
         self.font_dir_var.set(config.font_dir or "")
 

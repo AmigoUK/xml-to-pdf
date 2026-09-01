@@ -125,51 +125,102 @@ DEFAULT_MAPPINGS: dict[str, str] = {
 }
 
 
-# Keyword-based fuzzy matching: slot -> list of lowercase substrings to look for in tags
+# ── Keyword-based fuzzy matching ─────────────────────────────
+# slot -> lowercase substrings to look for inside a tag name.
+#
+# Several slots describe the same real-world field seen from different sections
+# (a product name appears in the items table, the batch table and on the barcode
+# card). Those share one vocabulary below instead of keeping near-copies that
+# drift apart — the copies used to be shorter than the original, which is why
+# German ArtikelBezeichnung and Dutch ArtikelNaam matched item_name but not
+# batch_product_name.
+
+_PRODUCT_NAME = [
+    "productname", "itemname", "description", "artikelname", "bezeichnung",
+    "artikelbezeichnung", "nomarticle", "designationproduit", "nombreproducto",
+    "descripcion", "nomeprodotto", "descrizione", "productnaam", "artikelnaam",
+    "omschrijving", "towarnazwa",
+]
+_PRODUCT_CODE = [
+    "productcode", "itemcode", "sku", "artikelnr", "artnr", "artikelnummer",
+    "codearticle", "codeproduit", "codigoproducto", "codigoarticulo",
+    "codiceprodotto", "codicearticolo", "artikelcode", "towarkod",
+]
+_LOT_NUMBER = [
+    "lotnumber", "lotno", "batchnumber", "chargennr", "chargenummer", "numerolot",
+    "numerolote", "numerolotto", "lotnummer", "partijnummer",
+    "towardostawanumerserii", "numerpartii",
+]
+_EXPIRY_DATE = [
+    "expirydate", "expdate", "bestbefore", "verfallsdatum", "mindesthaltbarkeit",
+    "mhd", "haltbarkeitsdatum", "dateperemption", "dluo", "fechacaducidad",
+    "fechavencimiento", "datascadenza", "houdbaarheidsdatum", "vervaldatum",
+    "towardostawadatawaznosci", "datawaznosci",
+]
+
+
+def _keywords(*groups) -> list[str]:
+    """Merge keyword groups, dropping duplicates but keeping the order."""
+    merged: list[str] = []
+    for group in groups:
+        items = [group] if isinstance(group, str) else group
+        for kw in items:
+            if kw not in merged:
+                merged.append(kw)
+    return merged
+
+
 SLOT_KEYWORDS: dict[str, list[str]] = {
     # Supplier — EN, DE, FR, ES, IT, NL, PL
     "supplier_name": ["suppliername", "vendorname", "sellername", "lieferantname", "lieferantename", "fournisseurnom", "nomfournisseur", "proveedornombre", "nombreproveedor", "fornitorenome", "nomefornito", "leveranciernaam", "dostawcanazwa", "sprzedawcanazwa"],
     "supplier_street": ["supplierstreet", "supplieraddress", "vendorstreet", "lieferantstrasse", "fournisseurrue", "proveedorcalle", "fornitorevia", "leverancierstraat", "dostawcaadresulica", "sprzedawcaulica"],
     "supplier_city": ["suppliercity", "vendorcity", "lieferantstadt", "lieferantort", "fournisseurville", "proveedorciudad", "fornitorecitt", "leverancierstad", "dostawcaadresmiejscowosc", "sprzedawcamiasto"],
-    "supplier_postal_code": ["supplierpostal", "supplierpostcode", "vendorpostal", "lieferantplz", "fournisseurcodepostal", "proveedorcodigopostal", "fornitorecap", "leverancierpostcode", "dostawcaadrescodpocztowy", "sprzedawcakod"],
-    "supplier_nip": ["suppliervatnumber", "suppliervat", "suppliernip", "vendornip", "lieferantumsatzsteuer", "lieferantsteuernr", "fournisseurtva", "proveedornif", "proveedorcif", "fornitoreiva", "fornitorecodicefiscale", "leverancierbtw", "dostawcanip", "sprzedawcanip"],
+    "supplier_postal_code": ["supplierpostal", "supplierpostcode", "vendorpostal", "lieferantplz", "fournisseurcodepostal", "proveedorcodigopostal", "fornitorecap", "leverancierpostcode", "dostawcaadreskodpocztowy", "sprzedawcakodpocztowy", "sprzedawcakod"],
+    "supplier_nip": ["suppliervatnumber", "suppliervat", "suppliernip", "vendornip", "lieferantumsatzsteuer", "lieferantsteuernr", "lieferantustid", "fournisseurtva", "proveedornif", "proveedorcif", "fornitoreiva", "fornitorecodicefiscale", "leverancierbtw", "dostawcanip", "sprzedawcanip"],
     # Buyer — EN, DE, FR, ES, IT, NL, PL
-    "buyer_name": ["buyername", "customername", "purchasername", "kaeufer", "kundenname", "empfaengername", "acheteurnom", "nomacheteur", "clientnom", "compradornom", "nombrecomprador", "clientenombre", "acquirentenome", "nomeacquirente", "clientenome", "kopernaam", "klantnaam", "nabywcanazwa", "odbiorca"],
-    "buyer_street": ["buyerstreet", "customerstreet", "kaeuferstrasse", "kundenstrasse", "acheteurrue", "compradorc alle", "acquirentevia", "koperstraat", "nabywcaadresulica", "odbiorcaulica"],
+    "buyer_name": ["buyername", "customername", "purchasername", "kaeufername", "kaeufer", "kundenname", "empfaengername", "acheteurnom", "nomacheteur", "clientnom", "compradornombre", "compradornom", "nombrecomprador", "clientenombre", "acquirentenome", "nomeacquirente", "clientenome", "kopernaam", "klantnaam", "nabywcanazwa", "odbiorcanazwa", "odbiorca"],
+    "buyer_street": ["buyerstreet", "customerstreet", "kaeuferstrasse", "kundenstrasse", "acheteurrue", "compradorcalle", "acquirentevia", "koperstraat", "nabywcaadresulica", "odbiorcaulica"],
     "buyer_city": ["buyercity", "customercity", "kaeuferstadt", "kundenort", "acheteurville", "compradorciudad", "acquirentecitt", "koperstad", "nabywcaadresmiejscowosc", "odbiorcamiasto"],
-    "buyer_postal_code": ["buyerpostal", "buyerpostcode", "customerpostal", "kaeuferplz", "kundenplz", "acheteurcodepostal", "compradorcodigopostal", "acquirentecap", "koperpostcode", "nabywcaadrescodpocztowy", "odbiorcakod"],
-    "buyer_nip": ["buyervatnumber", "buyervat", "buyernip", "customernip", "kaeuferumsatzsteuer", "kundensteuernr", "acheteurtva", "compradornif", "acquirenteiva", "koperbtw", "nabywcanip", "odbiorcnip"],
+    "buyer_postal_code": ["buyerpostal", "buyerpostcode", "customerpostal", "kaeuferplz", "kundenplz", "acheteurcodepostal", "compradorcodigopostal", "acquirentecap", "koperpostcode", "nabywcaadreskodpocztowy", "odbiorcakodpocztowy", "odbiorcakod"],
+    "buyer_nip": ["buyervatnumber", "buyervat", "buyernip", "customernip", "kaeuferumsatzsteuer", "kaeferustid", "kundensteuernr", "acheteurtva", "compradornif", "compradorcif", "acquirenteiva", "koperbtw", "nabywcanip", "odbiorcanip"],
     # Invoice Details — EN, DE, FR, ES, IT, NL, PL
     "invoice_number": ["invoicenumber", "invoiceno", "rechnungsnummer", "rechnungnr", "numerofacture", "facturenumero", "numerofactura", "facturanumero", "numerofattura", "fatturanumero", "factuurnummer", "fakturanumer", "nrdokumentu", "docnumber"],
     "issue_date": ["issuedate", "invoicedate", "rechnungsdatum", "ausstellungsdatum", "datefacture", "dateemission", "fechafactura", "fechaemision", "datafattura", "dataemissione", "factuurdatum", "fakturadatawystawienia", "datadokumentu", "datawystawienia"],
     "due_date": ["duedate", "paymentdate", "paymentdue", "faelligkeitsdatum", "zahlungsdatum", "dateecheance", "datepaiement", "fechavencimiento", "scadenza", "datascadenza", "vervaldatum", "betaaldatum", "fakturadataplatnosci", "dataplatnosci", "terminplatnosci"],
-    "payment_type": ["paymentmethod", "paymenttype", "zahlungsart", "zahlungsmethode", "modepaiement", "moyenpaiement", "formadepago", "metodopagamento", "betaalwijze", "betaalmethode", "fakturatypplatnosci", "formaplat", "typplatnosci"],
+    "payment_type": ["paymentmethod", "paymenttype", "zahlungsart", "zahlungsmethode", "modepaiement", "moyenpaiement", "formadepago", "formapago", "metodopagamento", "modalitapagamento", "betaalwijze", "betaalmethode", "fakturatypplatnosci", "formaplat", "typplatnosci"],
     "currency": ["currency", "currencycode", "waehrung", "devise", "moneda", "divisa", "valuta", "munteenheid", "fakturawaluta", "waluta"],
-    "delivery_note": ["deliverynote", "deliverynumber", "lieferschein", "lieferscheinnr", "bonlivraison", "albaranentrega", "bolladiconsegna", "pakbon", "leveringsbon", "fakturanumerywz", "numerywz", "wznumber"],
+    "delivery_note": ["deliverynote", "deliverynumber", "lieferschein", "lieferscheinnr", "bonlivraison", "albaranentrega", "albaran", "bolladiconsegna", "pakbon", "leveringsbon", "fakturanumerywz", "numerywz", "wznumber"],
     # Totals — EN, DE, FR, ES, IT, NL, PL
     "net_total": ["nettotal", "totalnet", "nettogesamt", "nettobetrag", "gesamtnetto", "totalhorsttaxe", "totalht", "totalneto", "importeneto", "totalenetto", "importonetto", "nettototaal", "totaalnetto", "fakturawartoscnetto", "wartoscnetto", "summanetto"],
-    "vat_total": ["vattotal", "totalvat", "totaltax", "mwstgesamt", "umsatzsteuergesamt", "totaltva", "montanttva", "totaliva", "importeiva", "totaleiva", "importoiva", "btwtotaal", "totaalbtw", "fakturawartoscvat", "wartoscvat", "summavat"],
+    "vat_total": ["vattotal", "totalvat", "totaltax", "mwstgesamt", "gesamtmwst", "umsatzsteuergesamt", "gesamtumsatzsteuer", "totaltva", "montanttva", "totaliva", "importeiva", "totaleiva", "importoiva", "btwtotaal", "totaalbtw", "fakturawartoscvat", "wartoscvat", "summavat"],
     "gross_total": ["grosstotal", "totalbrutto", "totaldue", "grandtotal", "bruttogesamt", "gesamtbrutto", "totalttc", "montantttc", "totalbruto", "importebruto", "totalelordo", "importolordo", "brutototaal", "totaalbruto", "fakturawartoscbrutto", "wartoscbrutto", "summabrutto"],
     # Items Table — EN, DE, FR, ES, IT, NL, PL
-    "item_code": ["productcode", "itemcode", "sku", "artikelnr", "artnr", "artikelnummer", "codearticle", "codeproduit", "codigoproducto", "codigoarticulo", "codiceprodotto", "codicearticolo", "productcode", "artikelcode", "towarkod"],
-    "item_name": ["productname", "itemname", "description", "artikelname", "bezeichnung", "artikelbezeichnung", "nomarticle", "designationproduit", "nombreproducto", "descripcion", "nomeprodotto", "descrizione", "productnaam", "artikelnaam", "omschrijving", "towarnazwa"],
+    "item_code": _PRODUCT_CODE,
+    "item_name": _PRODUCT_NAME,
     "item_qty": ["quantity", "qty", "menge", "anzahl", "quantite", "cantidad", "quantita", "aantal", "hoeveelheid", "ilosc"],
     "item_unit": ["unit", "uom", "unitofmeasure", "einheit", "mengeneinheit", "unite", "unidad", "unita", "eenheid", "towarjm", "jednostka"],
     "item_unit_price": ["unitprice", "priceperunit", "einzelpreis", "stueckpreis", "prixunitaire", "preciounitario", "prezzounitario", "eenheidsprijs", "stuksprijs", "cenanetto", "cenajed"],
-    "item_vat_rate": ["vatrate", "taxrate", "mwst", "mwstsatz", "steuersatz", "tauxtva", "tipoiva", "aliquotaiva", "btwpercentage", "btwtarief", "stawkavat"],
+    "item_vat_rate": ["vatrate", "taxrate", "mwstsatz", "mwst", "steuersatz", "tauxtva", "tipoiva", "aliquotaiva", "btwpercentage", "btwtarief", "stawkavat"],
     "item_net_total": ["netamount", "linetotal", "linenet", "nettowert", "positionsnetto", "montantnet", "importeneto", "importonetto", "nettobedrag", "regelbedrag", "wartoscnetto"],
-    # Batch Details — EN, DE, FR, ES, IT, NL, PL
-    "batch_product_name": ["productname", "batchproduct", "artikelname", "nomarticle", "nombreproducto", "nomeprodotto", "productnaam", "towarnazwa"],
-    "batch_lot_number": ["lotnumber", "lotno", "batchnumber", "chargennr", "chargenummer", "numerolot", "numerolote", "numerolotto", "lotnummer", "partijnummer", "towardostawanumerserii", "numerpartii"],
-    "batch_expiry_date": ["expirydate", "expdate", "bestbefore", "verfallsdatum", "mindesthaltbarkeit", "mhd", "haltbarkeitsdatum", "dateperemption", "dluo", "fechacaducidad", "fechavencimiento", "datascadenza", "houdbaarheidsdatum", "vervaldatum", "towardostawadatawaznosci", "datawaznosci"],
-    # Barcodes — EN, DE, FR, ES, IT, NL, PL
+    # Batch Details — share the product/lot/expiry vocabularies
+    "batch_product_name": _keywords("batchproduct", _PRODUCT_NAME),
+    "batch_lot_number": _LOT_NUMBER,
+    "batch_expiry_date": _EXPIRY_DATE,
+    # Barcodes — share the same vocabularies again
     "barcode_ean128": ["ean128code", "ean128", "gs1128", "gs1barcode", "towarkodean128"],
     "barcode_ean": ["eancode", "ean13", "gtin", "ean", "towarkodean"],
-    "barcode_product_name": ["productname", "artikelname", "nomarticle", "nombreproducto", "nomeprodotto", "productnaam", "towarnazwa"],
-    "barcode_product_code": ["productcode", "artikelnr", "codearticle", "codigoproducto", "codiceprodotto", "artikelcode", "towarkod"],
-    "barcode_batch": ["batchnumber", "lotnumber", "chargennr", "numerolot", "numerolote", "numerolotto", "lotnummer", "towardostawanumerserii"],
-    "barcode_expiry": ["expirydate", "expdate", "verfallsdatum", "mhd", "dateperemption", "fechacaducidad", "datascadenza", "vervaldatum", "towardostawadatawaznosci"],
+    "barcode_product_name": _PRODUCT_NAME,
+    "barcode_product_code": _PRODUCT_CODE,
+    "barcode_batch": _LOT_NUMBER,
+    "barcode_expiry": _EXPIRY_DATE,
 }
+
+
+# The single source of truth for the default XPaths. load_config() and the GUI
+# both read these instead of repeating literals, which used to leave three
+# different "defaults" in the codebase (.//Header, .//Naglowek, ./Invoice/...).
+DEFAULT_HEADER_XPATH = ".//Header"
+DEFAULT_ITEM_XPATH = "./Invoice/Items/Item"
 
 
 @dataclass
@@ -178,12 +229,33 @@ class MappingConfig:
     mappings: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_MAPPINGS))
     include_barcodes: bool = True
     font_dir: str | None = None
-    header_xpath: str = ".//Header"
-    item_xpath: str = "./Invoice/Items/Item"
+    header_xpath: str = DEFAULT_HEADER_XPATH
+    item_xpath: str = DEFAULT_ITEM_XPATH
 
     def get(self, slot_id: str) -> str:
         """Return the XML tag mapped to a slot, or empty string if unmapped."""
         return self.mappings.get(slot_id, "")
+
+
+def resolve_xpaths(schema: DiscoveredSchema | None,
+                   loaded: MappingConfig | None) -> tuple[str, str]:
+    """Decide which header/item XPaths a config being built should carry.
+
+    What the parser discovered in the loaded XML wins, because it describes the
+    document actually being converted. Whatever it could not determine falls
+    back to the config the user selected, and only then to the shared defaults.
+    The GUI used to fall back to hardcoded Polish XPaths here, which silently
+    overrode the XPaths of any config the user had loaded.
+    """
+    header = (schema.header_xpath if schema else "") or ""
+    item = (schema.item_xpath if schema else "") or ""
+
+    if not header:
+        header = (loaded.header_xpath if loaded else "") or DEFAULT_HEADER_XPATH
+    if not item:
+        item = (loaded.item_xpath if loaded else "") or DEFAULT_ITEM_XPATH
+
+    return header, item
 
 
 def auto_match_fields(schema: DiscoveredSchema) -> tuple[dict[str, str], dict[str, str]]:
@@ -204,7 +276,7 @@ def auto_match_fields(schema: DiscoveredSchema) -> tuple[dict[str, str], dict[st
     matched: dict[str, str] = {}
     reasons: dict[str, str] = {}
 
-    for slot in _all_slots():
+    for slot in all_slots():
         default_tag = DEFAULT_MAPPINGS.get(slot, "")
 
         # Determine which tags this slot should match against (section-aware)
@@ -246,22 +318,34 @@ def auto_match_fields(schema: DiscoveredSchema) -> tuple[dict[str, str], dict[st
     return matched, reasons
 
 
-def _keyword_match(keywords: list[str], tags: set[str]) -> str | None:
-    """Find best keyword match among tags. Longest keyword match wins."""
-    best_tag = None
-    best_keyword_len = 0
+def _keyword_match(keywords: list[str], tags) -> str | None:
+    """Find the best keyword match among tags.
 
-    for tag in tags:
+    Ranked by: a keyword equal to the whole tag beats a mere substring hit, then
+    the longer keyword, then the shorter tag. That last rule is what separates
+    TowarKod from TowarKodEan128 and CodiceEan from CodiceEan128.
+
+    Tags are iterated in sorted order and ties are resolved by the first one, so
+    the result never depends on set iteration order — the previous version could
+    return a different tag on every run because Python randomises string hashes.
+    """
+    best_rank: tuple[bool, int, int] | None = None
+    best_tag: str | None = None
+
+    for tag in sorted(tags):
         tag_lower = tag.lower()
         for keyword in keywords:
-            if keyword in tag_lower and len(keyword) > best_keyword_len:
-                best_keyword_len = len(keyword)
+            if keyword not in tag_lower:
+                continue
+            rank = (keyword == tag_lower, len(keyword), -len(tag_lower))
+            if best_rank is None or rank > best_rank:
+                best_rank = rank
                 best_tag = tag
 
     return best_tag
 
 
-def _all_slots() -> list[str]:
+def all_slots() -> list[str]:
     """Return all slot IDs in order."""
     slots = []
     for _cat, cat_slots in SLOT_CATEGORIES.items():
@@ -286,6 +370,6 @@ def load_config(path: str) -> MappingConfig:
         mappings=data.get("mappings", dict(DEFAULT_MAPPINGS)),
         include_barcodes=data.get("include_barcodes", True),
         font_dir=data.get("font_dir"),
-        header_xpath=data.get("header_xpath", ".//Naglowek"),
-        item_xpath=data.get("item_xpath", ".//Pozycja"),
+        header_xpath=data.get("header_xpath") or DEFAULT_HEADER_XPATH,
+        item_xpath=data.get("item_xpath") or DEFAULT_ITEM_XPATH,
     )
