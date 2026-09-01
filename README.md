@@ -51,6 +51,17 @@ it really came from this repository rather than trusting the file blindly:
 gh attestation verify xml-to-pdf-windows-x64.exe --repo AmigoUK/xml-to-pdf
 ```
 
+That subcommand needs GitHub CLI 2.49 or newer. On an older `gh`, ask the API
+for the attestation covering the file's digest instead:
+
+```bash
+gh api "repos/AmigoUK/xml-to-pdf/attestations/sha256:$(sha256sum -z \
+  xml-to-pdf-windows-x64.exe | cut -d' ' -f1)"
+```
+
+The `builder.id` in the returned SLSA statement names the repository, workflow
+and tag the binary was built from.
+
 `SHA256SUMS.txt` is attached to the release as well:
 
 ```bash

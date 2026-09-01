@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- README: `gh attestation verify` needs GitHub CLI 2.49 or newer; documented
+  the plain-API equivalent for older versions.
 
 ## [0.3.0] — 2026-09-01
 
