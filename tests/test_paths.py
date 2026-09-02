@@ -145,3 +145,26 @@ def test_no_relaunch_when_already_running_that_interpreter(tmp_path):
         sys.executable = saved
 
     assert calls == []
+
+
+def test_a_fonts_subdirectory_is_searched(tmp_path, monkeypatch):
+    """`python scripts/fetch_fonts.py fonts` must be enough — no --font-dir flag.
+
+    macOS and Windows have no system DejaVu, so anyone running from source has
+    to fetch it. Searching ./fonts means they fetch once and forget.
+    """
+    monkeypatch.setattr(paths, "_SOURCE_DIR", str(tmp_path))
+    search = paths.font_search_paths()
+    assert os.path.join(str(tmp_path), "fonts") in search
+
+
+def test_the_fonts_subdirectory_outranks_the_system_directories(tmp_path, monkeypatch):
+    monkeypatch.setattr(paths, "_SOURCE_DIR", str(tmp_path))
+    search = paths.font_search_paths()
+    assert search.index(os.path.join(str(tmp_path), "fonts")) < search.index(
+        "/usr/share/fonts/truetype/dejavu")
+
+
+def test_an_explicit_font_dir_still_wins(tmp_path, monkeypatch):
+    monkeypatch.setattr(paths, "_SOURCE_DIR", str(tmp_path))
+    assert paths.font_search_paths("/somewhere/else") == ["/somewhere/else"]

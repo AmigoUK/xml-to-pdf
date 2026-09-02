@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.6.1] — 2026-09-02
+
+### Added
+- README: **Intel Macs: run from source** — step-by-step setup, and a plain
+  statement that no release carries an Intel (x86_64) macOS binary. GitHub is
+  retiring its x86_64 macOS runners and the best-effort build job has never
+  been scheduled; an Intel Mac cannot run the Apple-silicon binary either,
+  since Rosetta translates Intel code to Apple silicon and not the reverse.
+  The download table now says so instead of promising a best-effort asset.
+- Release bodies must repeat that statement — recorded in CLAUDE.md so it is
+  not left to memory.
+
+### Fixed
+- A `fonts/` subdirectory is now searched for DejaVu Sans, so
+  `python scripts/fetch_fonts.py fonts` is enough and `--font-dir` no longer
+  has to be passed on every run. This is the first thing anyone running from
+  source on macOS or Windows hits, since neither ships DejaVu.
+
 ## [0.6.0] — 2026-09-02
 
 ### Changed
@@ -240,7 +258,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.0
 [0.5.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.1
 [0.5.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.0

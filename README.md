@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.6.0-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.6.1-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -26,7 +26,7 @@ dependencies, no font installation:
 |---|---|
 | Windows (x64) | `xml-to-pdf-windows-x64.exe` |
 | macOS (Apple silicon) | `xml-to-pdf-macos-arm64.tar.gz` |
-| macOS (Intel) | `xml-to-pdf-macos-x64.tar.gz` — best effort, see below |
+| macOS (Intel, x86_64) | **no binary** — [run from source](#intel-macs-run-from-source) |
 | Linux (x64) | `xml-to-pdf-linux-x64.tar.gz` |
 
 DejaVu Sans and all seven language profiles travel inside the executable. Run
@@ -50,11 +50,49 @@ Unix executables carry no filename extension by design: the executable bit and
 the file header identify a program, not its name. `.exe` is a Windows
 convention.
 
-The Intel macOS binary is built on a best-effort basis: GitHub is retiring its
-x86_64 macOS runners, so that build can be queued for a long time or skipped
-entirely. It is built in a separate job so it never holds up the other three.
-If it is missing from a release, an Intel Mac can still run the tool from
-source (`pip install -r requirements.txt`).
+### Intel Macs: run from source
+
+**There is no Intel (x86_64) macOS binary.** GitHub is retiring its x86_64
+macOS runners and the best-effort build job has never been scheduled, so no
+release carries one. An Intel Mac cannot run the Apple-silicon binary either —
+Rosetta translates Intel code to run on Apple silicon, not the other way round.
+
+Running from source works fully, GUI included. It takes about a minute:
+
+```bash
+# 1. Python 3.12 with Tk. macOS ships neither a recent Python nor tkinter.
+brew install python@3.12 python-tk@3.12
+#    (or use the installer from python.org, which bundles Tcl/Tk already)
+
+# 2. The code
+git clone https://github.com/AmigoUK/xml-to-pdf.git
+cd xml-to-pdf
+
+# 3. Dependencies, in a virtualenv
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 4. Fonts. macOS has no DejaVu Sans, which the renderer needs.
+python scripts/fetch_fonts.py fonts
+
+# 5. Run it
+python xml_invoice_to_pdf.py invoice.xml                  # CLI
+python xml_invoice_to_pdf.py invoice.xml --config polish  # with a profile
+python xml_invoice_to_pdf.py                              # GUI
+```
+
+Two conveniences worth knowing:
+
+- Fonts fetched into `fonts/` are found automatically — no `--font-dir` needed.
+- Once `.venv` exists in the project directory the tool re-executes itself with
+  it, so later runs work without `source .venv/bin/activate`.
+
+Everything the binaries do, the source does: the same seven language profiles,
+the same GS1-128 barcodes, the same GUI. The only thing you give up is not
+having to install Python.
+
+Apple-silicon Macs can use either the binary or these same steps.
 
 Profiles can be named rather than pathed (`--config polish`). Dropping your own
 `configs/*.json` or `DejaVuSans*.ttf` next to the executable overrides the

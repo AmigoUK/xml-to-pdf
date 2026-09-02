@@ -119,6 +119,12 @@ format; conventional commit subjects (`fix(scope): what`) with a body saying
 why and what evidence proves it. Pushing a `vX.Y.Z` tag runs the suite, then
 builds, smoke-tests and uploads the platform binaries.
 
+Every release body must say that **there is no Intel (x86_64) macOS binary**
+and point at the README's "Intel Macs: run from source" section. The
+best-effort `macos-13` job has never been scheduled, so silence on the point
+reads as an oversight to anyone on an Intel Mac. Drop this line only once a
+release actually ships that binary.
+
 # Protected Files
 
 Do not modify these without explicit instruction:

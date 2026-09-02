@@ -61,9 +61,14 @@ def font_search_paths(font_dir: str | None = None) -> list[str]:
     if font_dir:
         return [font_dir]
 
-    candidates = [app_dir()]
-    if resource_dir() not in candidates:
-        candidates.append(resource_dir())
+    # A "fonts" subdirectory is checked too, which is where
+    # scripts/fetch_fonts.py puts the faces. macOS and Windows ship no DejaVu,
+    # so anyone running from source has to fetch it; searching here means they
+    # fetch once instead of passing --font-dir on every run.
+    candidates = [app_dir(), os.path.join(app_dir(), "fonts")]
+    for base in (resource_dir(), os.path.join(resource_dir(), "fonts")):
+        if base not in candidates:
+            candidates.append(base)
     candidates.extend(SYSTEM_FONT_DIRS)
 
     seen, ordered = set(), []
