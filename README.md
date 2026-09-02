@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.5.1-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.6.0-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -157,22 +157,22 @@ python xml_invoice_to_pdf.py --gui
 ### GUI — Field Mapping
 Load an XML invoice and visually map XML tags to PDF slots. The auto-matcher detects fields across multiple languages. Unmatched fields can be assigned manually via dropdowns.
 
-![Field Mapping GUI](screenshoots/xml-mapping.png)
+![Field Mapping GUI](screenshots/xml-mapping.png)
 
 ### PDF Preview — Invoice Page
 Live preview of the generated PDF with supplier/buyer details, date badges, paginated items table, and totals summary.
 
-![PDF Preview](screenshoots/pdf-preview.png)
+![PDF Preview](screenshots/pdf-preview.png)
 
 ### Batch & Expiry Details
 Continuation page showing the batch/lot numbers and expiry dates table with a navy header bar indicating the section.
 
-![Batch & Expiry Details](screenshoots/batch-and-exp-date-page.png)
+![Batch & Expiry Details](screenshots/batch-and-exp-date-page.png)
 
 ### EAN-128 / GS1-128 Barcodes
 Barcode pages with product details and scannable GS1-128 codes for each invoice item.
 
-![EAN-128 Barcodes](screenshoots/ean-128-gs1-128.png)
+![EAN-128 Barcodes](screenshots/ean-128-gs1-128.png)
 
 ## Supported Languages
 
@@ -334,7 +334,7 @@ paths.py               — Font/config lookup, from source or a frozen bundle
 configs/               — Saved mapping profiles (one per language)
 tests/                 — pytest suite
 example_invoice.xml    — Sample British English invoice
-screenshoots/          — README screenshots
+screenshots/          — README screenshots
 requirements.txt       — Runtime dependencies
 requirements-dev.txt   — Test dependencies
 CHANGELOG.md           — Release history

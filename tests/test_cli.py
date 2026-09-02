@@ -72,7 +72,7 @@ def test_batch_conversion_keeps_each_file_independent(make_invoice, tmp_path, fo
 
     proc = run_cli(first, second, third, "--font-dir", fonts_dir, "--config",
                    os.path.join(CONFIGS_DIR, "british_english.json"))
-    assert "3 sukces" in proc.stdout, proc.stdout
+    assert "3 succeeded" in proc.stdout, proc.stdout
 
     for xml in (first, third):
         pdf = os.path.splitext(xml)[0] + ".pdf"
@@ -95,5 +95,29 @@ def test_cli_keeps_going_after_one_bad_file(make_invoice, tmp_path, fonts_dir):
     bad.write_text("<nope/>", encoding="utf-8")
 
     proc = run_cli(str(bad), good, "--font-dir", fonts_dir, expect_success=False)
-    assert "1 sukces, 1 bledow" in proc.stdout, proc.stdout
+    assert "1 succeeded, 1 failed" in proc.stdout, proc.stdout
     assert os.path.isfile(os.path.splitext(good)[0] + ".pdf")
+
+
+def test_user_facing_output_is_english(make_invoice, tmp_path, fonts_dir):
+    """The repo, README, GUI and PDF are English; the CLI must not be the odd one out."""
+    xml = make_invoice(items=2)
+    proc = run_cli(xml, "-o", str(tmp_path / "en.pdf"), "--font-dir", fonts_dir)
+
+    combined = proc.stdout + proc.stderr
+    for polish in ("Blad", "Sciezka", "Gotowe", "sukces", "bledow", "Pliki XML"):
+        assert polish not in combined, f"Polish string {polish!r} still reaches the user"
+
+
+def test_help_text_is_english(fonts_dir):
+    proc = run_cli("--help")
+    for polish in ("Konwersja", "Przyklady", "Sciezka", "Katalog", "Uruchom", "Pomin"):
+        assert polish not in proc.stdout, f"Polish string {polish!r} in --help"
+    assert "Convert" in proc.stdout or "convert" in proc.stdout
+
+
+def test_error_for_a_missing_file_is_english(tmp_path, fonts_dir):
+    proc = run_cli(str(tmp_path / "nope.xml"), "--font-dir", fonts_dir,
+                   expect_success=False)
+    assert "Nie znaleziono" not in proc.stderr
+    assert "not found" in proc.stderr.lower()

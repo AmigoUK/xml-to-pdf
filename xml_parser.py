@@ -39,8 +39,9 @@ def parse_invoice_tree(xml_path: str) -> ET.Element:
         head = f.read(8192)
     if _DOCTYPE.search(head):
         raise ValueError(
-            f"Plik {xml_path} zawiera deklaracje DOCTYPE (DTD/ENTITY) — odrzucono. "
-            "Faktury nie wymagaja DTD, a deklaracje encji moga byc zlosliwe."
+            f"{xml_path} carries a DOCTYPE declaration (DTD/ENTITY) and was "
+            "refused. Invoices need no DTD, and entity declarations can be "
+            "malicious."
         )
 
     return _strip_namespaces(ET.parse(xml_path).getroot())
@@ -58,7 +59,7 @@ class DiscoveredSchema:
 
 
 class InvoiceData:
-    """Sparsowane dane faktury z XML."""
+    """Invoice data parsed from XML."""
 
     def __init__(self, xml_path: str, header_xpath: str = ".//Naglowek",
                  item_xpath: str = ".//Pozycja"):
@@ -69,16 +70,17 @@ class InvoiceData:
         self.items = root.findall(item_xpath)
 
         if self.header is None:
-            raise ValueError(f"Brak elementu na xpath '{header_xpath}' w {xml_path}")
+            raise ValueError(
+                f"No element at xpath '{header_xpath}' in {xml_path}")
 
     def h(self, tag: str) -> str:
-        """Pobiera wartosc z naglowka faktury."""
+        """Read a value from the invoice header."""
         el = self.header.find(tag)
         return el.text.strip() if el is not None and el.text else ""
 
     @staticmethod
     def item_val(item, tag: str) -> str:
-        """Pobiera wartosc z pozycji faktury."""
+        """Read a value from an invoice line item."""
         el = item.find(tag)
         return el.text.strip() if el is not None and el.text else ""
 

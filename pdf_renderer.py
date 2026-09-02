@@ -59,6 +59,10 @@ BARCODE_CARD_H = 40 * mm
 BARCODE_CARD_GAP = 3 * mm
 BARCODE_BOTTOM_LIMIT = 30 * mm
 
+# Width reserved for the invoice number in the header bar, and the width the
+# supplier name gets to wrap in beside it.
+INVOICE_NUMBER_MAX_W = 165
+
 
 # Faces the renderer actually draws with. The italic ones are a bonus: nothing in
 # the layout uses them, so a Debian fonts-dejavu-core install (Regular + Bold only)
@@ -95,9 +99,9 @@ def register_fonts(font_dir: str | None = None) -> bool:
         path = locate(filename)
         if path is None:
             raise FileNotFoundError(
-                f"Nie znaleziono wymaganej czcionki {filename}.\n"
-                f"Szukano w: {search}\n"
-                f"Uzyj --font-dir <sciezka> aby wskazac katalog z DejaVuSans*.ttf"
+                f"Required font {filename} not found.\n"
+                f"Searched: {search}\n"
+                f"Use --font-dir <path> to point at a directory with DejaVuSans*.ttf"
             )
         resolved[name] = path
 
@@ -257,6 +261,26 @@ def _truncate(text: str, font_name: str, font_size: float, max_w: float) -> str:
         if pdfmetrics.stringWidth(text[:i], font_name, font_size) + ew <= max_w:
             return text[:i] + ellipsis
     return ellipsis
+
+
+def draw_shrink_to_fit(c, text: str, right_x: float, y: float, max_w: float,
+                       font_name: str, font_size: float,
+                       min_font_size: float = 7) -> float:
+    """Draw right-aligned text on a single line, shrinking it to fit max_w.
+
+    Used for identifiers such as the invoice number: wrapping one across two
+    lines splits the token in half ("INV-2026-0" / "03842"), which a reader can
+    easily mistranscribe. The font shrinks down to min_font_size, and only then
+    is the text truncated. Returns the font size used.
+    """
+    size = font_size
+    while size > min_font_size and pdfmetrics.stringWidth(text, font_name, size) > max_w:
+        size -= 0.5
+
+    label = _truncate(text, font_name, size, max_w)
+    c.setFont(font_name, size)
+    c.drawRightString(right_x, y, label)
+    return size
 
 
 def fit_paragraph(text: str, style: ParagraphStyle, max_w: float,
@@ -570,20 +594,19 @@ def draw_content_pages(c, inv: InvoiceData, cfg: MappingConfig, total_pages: int
 
     # Supplier name (left) — wrapped, max width leaves 130pt for invoice block
     inv_num = _hval(inv, cfg, "invoice_number")
-    header_name_max_w = W - 40 * mm - 130
+    header_name_max_w = W - 40 * mm - INVOICE_NUMBER_MAX_W - 10
     header_name_style = ParagraphStyle(
         "HeaderName", fontName=FONT_B, fontSize=18, leading=20, textColor=WHITE)
     draw_para(c, _hval(inv, cfg, "supplier_name").upper(),
               20 * mm, H - 5 * mm, header_name_max_w, header_name_style, max_h=bar_h - 6 * mm)
 
-    # Invoice number (right)
+    # Invoice number (right) — one line, shrunk to fit rather than wrapped
     c.setFillColor(WHITE)
     c.setFont(FONT, 11)
     c.drawRightString(W - 20 * mm, H - 12 * mm, "INVOICE")
-    inv_num_style = ParagraphStyle(
-        "HeaderInv", fontName=FONT_B, fontSize=16, leading=18, textColor=WHITE, alignment=TA_RIGHT)
-    draw_para(c, f"# {inv_num}",
-              W - 20 * mm - 120, H - 14 * mm, 120, inv_num_style, max_h=16 * mm)
+    c.setFillColor(WHITE)
+    draw_shrink_to_fit(c, f"# {inv_num}", W - 20 * mm, H - 21 * mm,
+                       INVOICE_NUMBER_MAX_W, FONT_B, 16)
 
     # Accent line
     c.setFillColor(ACCENT)
@@ -914,7 +937,7 @@ def xml_to_pdf(xml_path: str, output_path: str | None = None,
         Path to the generated PDF file
     """
     if not os.path.isfile(xml_path):
-        raise FileNotFoundError(f"Nie znaleziono pliku: {xml_path}")
+        raise FileNotFoundError(f"File not found: {xml_path}")
 
     if output_path is None:
         output_path = os.path.splitext(xml_path)[0] + ".pdf"

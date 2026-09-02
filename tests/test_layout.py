@@ -103,3 +103,38 @@ def test_long_party_names_do_not_overprint_the_address_lines(
     upper = [w for w in words if w.ymax < header_top]
     offenders = _overlapping_pairs(upper)
     assert not offenders, f"{len(offenders)} overprinted word pairs, e.g. {offenders[:3]}"
+
+
+def _header_bar_number_words(pdf_path):
+    """Words in the navy header bar that look like an invoice number.
+
+    Scoped to the bar because the footer repeats the number, which would let a
+    laxer assertion pass even while the bar shows it broken in half.
+    """
+    return [w for w in pdf_words(pdf_path)
+            if w.page == 1 and w.ymin < 28 * mm and w.text.startswith("INV-")]
+
+
+def test_the_invoice_number_is_not_broken_across_lines(make_invoice, fonts_dir,
+                                                       tmp_path):
+    """A reference number split mid-token can be misread; keep it on one line."""
+    number = "INV-2026-003842"
+    xml = make_invoice(items=3, header_overrides={"InvoiceNumber": number})
+    out = str(tmp_path / "number.pdf")
+    xml_to_pdf(xml, out, font_dir=fonts_dir)
+
+    found = _header_bar_number_words(out)
+    assert [w.text for w in found] == [number], (
+        f"expected {number!r} on one line in the header bar, got {found}"
+    )
+
+
+def test_a_very_long_invoice_number_is_shortened_not_wrapped(make_invoice, fonts_dir,
+                                                             tmp_path):
+    xml = make_invoice(items=2, header_overrides={
+        "InvoiceNumber": "INV-2026-00384299999999-SUFFIX-THAT-WILL-NOT-FIT"})
+    out = str(tmp_path / "longnumber.pdf")
+    xml_to_pdf(xml, out, font_dir=fonts_dir)
+
+    found = _header_bar_number_words(out)
+    assert len(found) == 1, f"expected one line, got {found}"

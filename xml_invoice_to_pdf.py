@@ -2,19 +2,20 @@
 """
 xml_invoice_to_pdf.py
 =====================
-Konwertuje faktury XML (format Domson/polski) do profesjonalnego PDF
-z tabela pozycji, danymi partii i kodami kreskowymi EAN-128 / GS1-128.
+Converts XML invoices into formatted PDFs with an items table, batch details
+and EAN-128 / GS1-128 barcodes.
 
-Wymagania:
-    pip install reportlab
+Requirements:
+    pip install -r requirements.txt
 
-Uzycie:
-    python xml_invoice_to_pdf.py faktura.xml                    # -> faktura.pdf
-    python xml_invoice_to_pdf.py faktura.xml -o wynik.pdf       # -> wynik.pdf
-    python xml_invoice_to_pdf.py *.xml                          # batch: wiele plikow
-    python xml_invoice_to_pdf.py faktura.xml --no-barcodes      # bez strony z EAN-128
-    python xml_invoice_to_pdf.py faktura.xml --font-dir /fonts  # wlasna sciezka do czcionek
-    python xml_invoice_to_pdf.py --gui                          # tryb graficzny
+Usage:
+    python xml_invoice_to_pdf.py invoice.xml                    # -> invoice.pdf
+    python xml_invoice_to_pdf.py invoice.xml -o result.pdf      # -> result.pdf
+    python xml_invoice_to_pdf.py *.xml                          # batch conversion
+    python xml_invoice_to_pdf.py invoice.xml --no-barcodes      # skip barcode pages
+    python xml_invoice_to_pdf.py invoice.xml --config polish    # a mapping profile
+    python xml_invoice_to_pdf.py invoice.xml --font-dir /fonts  # custom font directory
+    python xml_invoice_to_pdf.py --gui                          # graphical mode
 """
 
 import argparse
@@ -36,24 +37,25 @@ from mapping import (
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Konwersja faktur XML -> PDF z kodami EAN-128",
-        epilog="Przyklady:\n"
-               "  python xml_invoice_to_pdf.py faktura.xml\n"
-               "  python xml_invoice_to_pdf.py faktura.xml -o wynik.pdf\n"
+        description="Convert XML invoices to PDF with EAN-128 / GS1-128 barcodes",
+        epilog="Examples:\n"
+               "  python xml_invoice_to_pdf.py invoice.xml\n"
+               "  python xml_invoice_to_pdf.py invoice.xml -o result.pdf\n"
                "  python xml_invoice_to_pdf.py *.xml\n"
-               "  python xml_invoice_to_pdf.py faktura.xml --no-barcodes\n"
+               "  python xml_invoice_to_pdf.py invoice.xml --config polish\n"
+               "  python xml_invoice_to_pdf.py invoice.xml --no-barcodes\n"
                "  python xml_invoice_to_pdf.py --gui\n",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("xml_files", nargs="*", help="Pliki XML faktur do konwersji")
-    parser.add_argument("-o", "--output", help="Sciezka wyjsciowa PDF (tylko dla 1 pliku)")
+    parser.add_argument("xml_files", nargs="*", help="Invoice XML files to convert")
+    parser.add_argument("-o", "--output", help="Output PDF path (single input file only)")
     parser.add_argument("--no-barcodes", action="store_true",
-                        help="Pomin strone z kodami kreskowymi EAN-128")
-    parser.add_argument("--font-dir", help="Katalog z czcionkami DejaVuSans*.ttf")
-    parser.add_argument("--gui", action="store_true", help="Uruchom tryb graficzny (GUI)")
+                        help="Skip the EAN-128 / GS1-128 barcode pages")
+    parser.add_argument("--font-dir", help="Directory containing DejaVuSans*.ttf")
+    parser.add_argument("--gui", action="store_true", help="Launch the graphical interface")
     parser.add_argument("--config",
-                        help="Sciezka do pliku konfiguracji JSON lub nazwa profilu "
-                             "(np. 'polish'); profile: configs/*.json")
+                        help="Path to a JSON mapping config, or a profile name "
+                             "(e.g. 'polish'); profiles live in configs/")
     parser.add_argument("--version", action="version",
                         version=f"xml-to-pdf {__version__}\n{footer_text()}")
 
@@ -65,28 +67,27 @@ def main():
             from gui import launch_gui
             launch_gui()
         except ImportError as e:
-            print(f"Blad: Nie mozna uruchomic GUI — {e}", file=sys.stderr)
-            print("Zainstaluj customtkinter: pip install customtkinter", file=sys.stderr)
+            print(f"Error: cannot start the GUI — {e}", file=sys.stderr)
+            print("Install customtkinter: pip install customtkinter", file=sys.stderr)
             sys.exit(1)
         return
 
     if args.output and len(args.xml_files) > 1:
-        parser.error("Opcja -o/--output dostepna tylko dla pojedynczego pliku.")
+        parser.error("-o/--output only applies to a single input file.")
 
     # Load mapping config if specified
     mapping_config = None
     if args.config:
         config_path = resolve_config_path(args.config)
         if config_path is None:
-            print(f"Blad: nie znaleziono konfiguracji '{args.config}'.",
-                  file=sys.stderr)
-            print(f"       Dostepne profile: {', '.join(available_configs()) or 'brak'}",
-                  file=sys.stderr)
+            print(f"Error: no config found for '{args.config}'.", file=sys.stderr)
+            print(f"       Available profiles: "
+                  f"{', '.join(available_configs()) or 'none'}", file=sys.stderr)
             sys.exit(1)
         try:
             mapping_config = load_config(config_path)
         except Exception as e:
-            print(f"Blad ladowania konfiguracji: {e}", file=sys.stderr)
+            print(f"Error loading the config: {e}", file=sys.stderr)
             sys.exit(1)
 
     success, failed = 0, 0
@@ -104,11 +105,11 @@ def main():
             print(f"OK {xml_path} -> {out}")
             success += 1
         except Exception as e:
-            print(f"FAIL {xml_path} — Blad: {e}", file=sys.stderr)
+            print(f"FAIL {xml_path} — {e}", file=sys.stderr)
             failed += 1
 
     if len(args.xml_files) > 1:
-        print(f"\nGotowe: {success} sukces, {failed} bledow")
+        print(f"\nDone: {success} succeeded, {failed} failed")
 
     sys.exit(1 if failed else 0)
 

@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.6.0] — 2026-09-02
+
+### Changed
+- **BREAKING (CLI output):** every user-facing string is English now. The CLI
+  messages and `--help` were Polish, left over from the original single-format
+  tool, while the README, GUI, PDF, releases and commits were all English.
+  Scripts grepping for `Blad`, `Gotowe` or `N sukces, N bledow` need updating —
+  the equivalents are `Error`, `Done` and `N succeeded, N failed`. A test now
+  fails if a Polish string reaches stdout or stderr.
+- The `screenshoots/` directory is spelled `screenshots/`, with the README
+  links updated. Releases up to v0.5.1 keep the old spelling in their own tree.
+- The invoice number in the header bar is drawn on one line, shrinking to fit
+  instead of wrapping. A long number used to break mid-token
+  ("INV-2026-0" / "03842"), which is easy to mistranscribe from a printed
+  invoice.
+
+### Added
+- `CLAUDE.md`: project overview, the exact dependency versions the code is
+  verified against, the conventions, the eight invariants each of which
+  represents a bug that shipped, and the protected files.
+- README screenshots regenerated from the current code — the old ones still
+  showed the hidden payment badge and the blank Unit column, both fixed in
+  v0.1.0.
+
+### Notes
+- Flat module layout is recorded as the current shape, not a principle:
+  publishing to PyPI needs a real package, and CLAUDE.md spells out what that
+  migration involves so it happens deliberately rather than halfway.
+
 ## [0.5.1] — 2026-09-01
 
 ### Fixed
@@ -211,7 +240,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.0
 [0.5.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.1
 [0.5.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.0
 [0.4.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.4.0
