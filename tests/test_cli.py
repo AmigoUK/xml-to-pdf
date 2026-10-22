@@ -121,3 +121,102 @@ def test_error_for_a_missing_file_is_english(tmp_path, fonts_dir):
                    expect_success=False)
     assert "Nie znaleziono" not in proc.stderr
     assert "not found" in proc.stderr.lower()
+
+
+# ── Batch to a folder ─────────────────────────────────────────────
+
+@pytest.fixture
+def two_invoices(tmp_path):
+    from conftest import build_invoice_xml
+    root = tmp_path / "in"
+    for sub, num in (("a", "INV-1"), ("b", "INV-2")):
+        (root / sub).mkdir(parents=True)
+        build_invoice_xml(str(root / sub / "invoice.xml"),
+                          header_overrides={"InvoiceNumber": num, "IssueDate": "2026-03-10"})
+    return root
+
+
+def _profile_with_pattern(tmp_path, pattern):
+    with open(os.path.join(CONFIGS_DIR, "british_english.json"), encoding="utf-8") as f:
+        cfg = json.load(f)
+    cfg["filename_pattern"] = pattern
+    path = tmp_path / "pat.json"
+    path.write_text(json.dumps(cfg), encoding="utf-8")
+    return str(path)
+
+
+def test_cli_batch_to_folder_with_pattern(two_invoices, tmp_path, fonts_dir):
+    out = str(tmp_path / "out")
+    proc = run_cli(str(two_invoices), "--output-dir", out, "--name-pattern",
+                   "{period}_{invoice_number}", "--config", "british_english",
+                   "--font-dir", fonts_dir)
+    assert sorted(os.listdir(out)) == ["2026-03_INV-1.pdf", "2026-03_INV-2.pdf"]
+    assert "[2/2] OK" in proc.stdout
+
+
+def test_cli_dry_run_writes_nothing(two_invoices, tmp_path, fonts_dir):
+    out = str(tmp_path / "out")
+    proc = run_cli(str(two_invoices), "--output-dir", out, "--name-pattern",
+                   "{period}_{invoice_number}", "--config", "british_english",
+                   "--dry-run", "--font-dir", fonts_dir)
+    assert not os.path.exists(out)
+    assert "-> 2026-03_INV-1.pdf" in proc.stdout
+    assert "2 files planned" in proc.stdout
+
+
+def test_cli_dry_run_shows_missing_field_warning(tmp_path, fonts_dir):
+    from conftest import build_invoice_xml
+    xml = build_invoice_xml(str(tmp_path / "x.xml"), header_overrides={"BuyerName": ""})
+    proc = run_cli(xml, "--output-dir", str(tmp_path / "out"), "--name-pattern",
+                   "{buyer_name}", "--config", "british_english", "--dry-run")
+    assert "warning: missing buyer_name" in proc.stdout
+
+
+def test_cli_pattern_from_profile(two_invoices, tmp_path, fonts_dir):
+    out = str(tmp_path / "out")
+    run_cli(str(two_invoices), "--output-dir", out, "--config",
+            _profile_with_pattern(tmp_path, "{invoice_number}"), "--font-dir", fonts_dir)
+    assert sorted(os.listdir(out)) == ["INV-1.pdf", "INV-2.pdf"]
+
+
+def test_cli_without_output_dir_ignores_profile_pattern(tmp_path, fonts_dir):
+    from conftest import build_invoice_xml
+    xml = build_invoice_xml(str(tmp_path / "invoice.xml"))
+    run_cli(xml, "--config", _profile_with_pattern(tmp_path, "{invoice_number}"),
+            "--font-dir", fonts_dir)
+    assert os.path.exists(tmp_path / "invoice.pdf")
+
+
+def test_cli_pattern_needs_output_dir(tmp_path):
+    from conftest import build_invoice_xml
+    xml = build_invoice_xml(str(tmp_path / "x.xml"))
+    for flag in (["--name-pattern", "{invoice_number}"], ["--dry-run"]):
+        proc = run_cli(xml, *flag, expect_success=False)
+        assert proc.returncode == 2
+        assert "need --output-dir" in proc.stderr
+
+
+def test_cli_o_conflicts_with_output_dir(tmp_path):
+    from conftest import build_invoice_xml
+    xml = build_invoice_xml(str(tmp_path / "x.xml"))
+    proc = run_cli(xml, "-o", str(tmp_path / "a.pdf"), "--output-dir",
+                   str(tmp_path / "o"), expect_success=False)
+    assert proc.returncode == 2
+    assert "cannot be combined" in proc.stderr
+
+
+def test_cli_unknown_field_is_a_usage_error(tmp_path):
+    from conftest import build_invoice_xml
+    xml = build_invoice_xml(str(tmp_path / "x.xml"))
+    proc = run_cli(xml, "--output-dir", str(tmp_path / "o"), "--name-pattern",
+                   "{nope}", expect_success=False)
+    assert proc.returncode == 2
+    assert "nope" in proc.stderr
+
+
+def test_cli_empty_folder_is_an_error(tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    proc = run_cli(str(empty), "--output-dir", str(tmp_path / "o"), expect_success=False)
+    assert proc.returncode == 1
+    assert "no XML files found" in proc.stderr

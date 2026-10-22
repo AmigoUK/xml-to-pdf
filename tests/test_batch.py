@@ -109,3 +109,16 @@ def test_never_overwrites_file_created_after_planning(
     (out / "INV-1.pdf").write_bytes(b"keep me")
     run_batch(plan, british_config, font_dir=fonts_dir)
     assert (out / "INV-1.pdf").read_bytes() == b"keep me" and (out / "INV-1_2.pdf").exists()
+
+
+def test_on_done_reports_each_outcome_live(three_invoices, british_config, fonts_dir, tmp_path):
+    bad = tmp_path / "bad.xml"
+    bad.write_text("<not-closed>", encoding="utf-8")
+    files = three_invoices[1][:1] + [str(bad)]
+    plan = plan_batch(files, british_config, str(tmp_path / "o"), pattern="{invoice_number}")
+    done = []
+    run_batch(plan, british_config, font_dir=fonts_dir,
+              on_done=lambda i, n, item, path, err: done.append((i, n, item.source, path, err)))
+    assert [d[:3] for d in done] == [(1, 2, files[0]), (2, 2, str(bad))]
+    assert done[0][3].endswith("INV-1.pdf") and done[0][4] is None
+    assert done[1][3] is None and done[1][4]

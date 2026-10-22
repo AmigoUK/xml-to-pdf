@@ -117,8 +117,14 @@ def run_batch(plan: BatchPlan, config: MappingConfig, *,
               include_barcodes: bool | None = None,
               font_dir: str | None = None,
               on_progress: Callable[[int, int, PlannedFile], None] | None = None,
-              should_stop: Callable[[], bool] | None = None) -> BatchResult:
+              should_stop: Callable[[], bool] | None = None,
+              on_done: Callable[[int, int, PlannedFile, str | None, str | None], None]
+              | None = None) -> BatchResult:
     """Render every planned file; one file's failure never stops the rest.
+
+    *on_done* fires after each file with ``(i, total, item, path, error)``:
+    *path* is the PDF actually written (``None`` on failure), *error* the
+    reason (``None`` on success). It lets a caller show outcomes live.
 
     Stopping is checked between files, so the current PDF always finishes.
     """
@@ -133,6 +139,8 @@ def run_batch(plan: BatchPlan, config: MappingConfig, *,
             on_progress(i, total, item)
         if item.error:
             result.failed.append((item.source, item.error))
+            if on_done is not None:
+                on_done(i, total, item, None, item.error)
             continue
         try:
             target = os.path.join(plan.output_dir, item.filename)
@@ -145,4 +153,9 @@ def run_batch(plan: BatchPlan, config: MappingConfig, *,
             result.succeeded.append((item.source, target))
         except Exception as exc:
             result.failed.append((item.source, str(exc)))
+            if on_done is not None:
+                on_done(i, total, item, None, str(exc))
+        else:
+            if on_done is not None:
+                on_done(i, total, item, target, None)
     return result
