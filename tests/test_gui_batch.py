@@ -272,3 +272,37 @@ print("LIST2:", app.batch_list.get("1.0", "end").replace(chr(10), " | "))
         line = next(l for l in out.splitlines() if l.startswith(tag))
         assert "Test Supplier Ltd.pdf" in line and "Test Supplier Ltd_2.pdf" in line, out
         assert "INV-1" not in line.split("←")[0], out
+
+
+def test_closing_mid_batch_waits_for_the_current_file(two_invoices, tmp_path, fonts_dir):
+    # The worker is a daemon thread: destroying the window at once killed it,
+    # possibly mid-save, leaving a truncated PDF under its final name.
+    out_dir = tmp_path / "out"
+    out = _run_in_gui(_preview_snippet(two_invoices, str(out_dir), fonts_dir) + f"""
+closed = []
+real_destroy = app.destroy
+def fake_destroy():
+    files = sorted(os.listdir({str(out_dir)!r})) if os.path.isdir({str(out_dir)!r}) else []
+    tails = [open(os.path.join({str(out_dir)!r}, f), "rb").read()[-1024:] for f in files]
+    closed.append((files, all(b"%%EOF" in t for t in tails)))
+app.destroy = fake_destroy
+app._batch_run()
+# Close while a file is being written, which is when killing the worker hurts.
+pump(lambda: app.batch_progress_label.cget("text").startswith("1 of 2"), 30)
+app._on_closing()
+print("IMMEDIATE_CLOSE:", bool(closed))
+print("STATUS:", app.status_label.cget("text"))
+app._on_closing()            # a second click must not close early either
+print("SECOND_CLOSE:", bool(closed))
+pump(lambda: bool(closed), 60)
+app.destroy = real_destroy
+print("FILES:", closed[0][0])
+print("COMPLETE:", closed[0][1])
+""", two_invoices)
+    assert "IMMEDIATE_CLOSE: False" in out, out
+    assert "SECOND_CLOSE: False" in out, out
+    assert "STATUS: Stopping after the current file" in out, out
+    assert "COMPLETE: True" in out, out
+    # The file being written when the window was closed is finished, not cut
+    # off; normally the stop then keeps the second from starting.
+    assert "FILES: ['2026-03_INV-1.pdf'" in out, out

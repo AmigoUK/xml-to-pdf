@@ -71,6 +71,7 @@ class App(ctk.CTk):
         self.batch_plan = None
         self._batch_stop_event = threading.Event()
         self._batch_running = False
+        self._close_requested = False
 
         self._build_top_bar()
         self._build_tabs()
@@ -695,6 +696,9 @@ class App(ctk.CTk):
         # Unlock first, before either outcome is reported, so no finish path
         # can leave the inputs disabled.
         self._batch_running = False
+        if self._close_requested:
+            self._on_closing()
+            return
         self._set_batch_inputs_enabled(True)
         self.btn_batch_run.configure(state="normal")
         self.btn_batch_stop.configure(state="disabled")
@@ -982,6 +986,14 @@ class App(ctk.CTk):
             var.set(tag if tag else NONE_TAG)
 
     def _on_closing(self):
+        # The batch worker is a daemon thread: destroying the window now would
+        # kill it, possibly mid-save, leaving a truncated PDF under its final
+        # name. Ask it to stop and close once _on_batch_finished runs. No
+        # dialog: a modal "really quit?" would also block headless runs.
+        if self._batch_running:
+            self._close_requested = True
+            self._batch_stop()
+            return
         from preview import cleanup_temp_files
         cleanup_temp_files(self._temp_files)
         self.destroy()
