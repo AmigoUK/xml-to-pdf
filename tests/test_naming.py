@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from naming import (NAME_FIELDS, NameAllocator, PatternError, build_stem, parse_period,
                     sanitize, validate_pattern, MAX_STEM_BYTES)
@@ -102,6 +104,16 @@ def test_leading_dots_are_stripped(value, expected):
 
 def test_leading_dot_in_pattern_literal_is_stripped():
     assert build_stem(".{invoice_number}", {"invoice_number": "A"})[0] == "A"
+
+@pytest.mark.parametrize("bad,field", [("{Period}", "Period"), ("{invoice-number}", "invoice-number"),
+                                       ("{}", "")])
+def test_unknown_field_is_named_even_with_odd_characters(bad, field):
+    with pytest.raises(PatternError, match=r"unknown field \{" + re.escape(field) + r"\}"):
+        validate_pattern(bad)
+
+def test_nested_brace_is_still_unmatched():
+    with pytest.raises(PatternError, match="unmatched"):
+        validate_pattern("{{period}")
 
 def test_reserved_name_check_runs_after_leading_dots_go():
     assert build_stem("{invoice_number}", {"invoice_number": ".con"})[0] == "con_"

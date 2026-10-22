@@ -32,7 +32,10 @@ NAME_FIELDS: list[str] = [
 # "_NN" suffix and ".pdf".
 MAX_STEM_BYTES = 200
 
-_TOKEN_RE = re.compile(r"\{([a-z0-9_]+)\}")
+# Anything between braces is a token, so "{Period}" is reported as the
+# unknown field it is; a narrow [a-z0-9_]+ class left it unmatched and the
+# user was told about a stray "{" instead.
+_TOKEN_RE = re.compile(r"\{([^{}]*)\}")
 
 
 class PatternError(ValueError):
