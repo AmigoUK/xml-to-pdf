@@ -115,5 +115,12 @@ def test_nested_brace_is_still_unmatched():
     with pytest.raises(PatternError, match="unmatched"):
         validate_pattern("{{period}")
 
+@pytest.mark.parametrize("text,expected", [
+    ("1.3.2026", "2026-03"), ("1/3/2026", "2026-03"), ("01.3.2026", "2026-03"),
+    ("1.03.2026", "2026-03"), ("31.2.2026", ""),
+])
+def test_parse_period_accepts_unpadded_european_dates(text, expected):
+    assert parse_period(text) == expected
+
 def test_reserved_name_check_runs_after_leading_dots_go():
     assert build_stem("{invoice_number}", {"invoice_number": ".con"})[0] == "con_"

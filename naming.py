@@ -65,7 +65,8 @@ def validate_pattern(pattern: str) -> list[str]:
 # ── Period ────────────────────────────────────────────────────────
 
 _ISO_DATE_RE = re.compile(r"^\s*(\d{4})-(\d{2})-(\d{2})")
-_DMY_DATE_RE = re.compile(r"^\s*(\d{2})[./](\d{2})[./](\d{4})")
+# Day and month may be unpadded: European invoices often write 1.3.2026.
+_DMY_DATE_RE = re.compile(r"^\s*(\d{1,2})[./](\d{1,2})[./](\d{4})")
 
 
 def parse_period(date_text: str) -> str:
