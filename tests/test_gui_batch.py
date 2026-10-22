@@ -190,3 +190,41 @@ print("LIST:", app.batch_list.get("1.0", "end"))
 """, str(folder / "x.xml"))
     assert "no-buyer_name.pdf" in out, out
     assert "⚠ missing buyer_name" in out, out
+
+
+def test_inputs_are_locked_while_a_batch_runs(two_invoices, tmp_path, fonts_dir):
+    """Choosing new inputs mid-run used to relabel the old run's results."""
+    from conftest import build_invoice_xml
+    other = tmp_path / "other"
+    other.mkdir()
+    for n in range(3):
+        build_invoice_xml(str(other / f"o{n}.xml"))
+    out = _run_in_gui(_preview_snippet(two_invoices, str(tmp_path / "out"), fonts_dir) + f"""
+app._batch_run()
+print("LOCKED:", [w.cget("state") for w in app._batch_input_widgets].count("normal"))
+filedialog.askdirectory = lambda **kw: {str(other)!r}
+filedialog.askopenfilenames = lambda **kw: ({str(other / "o0.xml")!r},)
+app._choose_batch_folder()
+app._choose_batch_files()
+app._set_batch_inputs([{str(other)!r}], default_output={str(other)!r})
+app._insert_pattern_field("supplier_name")
+app._batch_preview()
+print("MID_COUNT:", app.batch_count_label.cget("text"))
+print("MID_INPUTS:", len(app.batch_inputs))
+print("MID_PATTERN:", app.pattern_var.get())
+print("MID_STATUS:", app.status_label.cget("text"))
+pump(lambda: app.status_label.cget("text").startswith("Batch done"), 60)
+print("STATUS:", app.status_label.cget("text"))
+print("COUNT:", app.batch_count_label.cget("text"))
+print("UNLOCKED:", all(w.cget("state") == "normal" for w in app._batch_input_widgets))
+print("LIST:", app.batch_list.get("1.0", "end"))
+""", two_invoices)
+    assert "LOCKED: 0" in out, out
+    assert "MID_COUNT: 2 XML files" in out, out
+    assert "MID_INPUTS: 2" in out, out
+    assert "MID_PATTERN: {period}_{invoice_number}" in out, out
+    assert "MID_STATUS: Batch running..." in out, out
+    assert "STATUS: Batch done: 2 succeeded, 0 failed" in out, out
+    assert "COUNT: 2 XML files" in out, out
+    assert "UNLOCKED: True" in out, out
+    assert "o0.xml" not in out.split("LIST:")[1], out

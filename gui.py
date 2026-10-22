@@ -416,10 +416,18 @@ class App(ctk.CTk):
         # Inputs
         row = ctk.CTkFrame(frame, fg_color="transparent")
         row.pack(fill="x", pady=(0, 4))
-        ctk.CTkButton(row, text="Choose Folder…", width=120,
-                      command=self._choose_batch_folder).pack(side="left")
-        ctk.CTkButton(row, text="Choose Files…", width=120,
-                      command=self._choose_batch_files).pack(side="left", padx=6)
+        # Everything that changes what the batch is. Locked while a run is in
+        # progress: choosing new inputs mid-run used to relabel the old run's
+        # results with the new folder's file count.
+        self._batch_input_widgets: list = []
+        btn = ctk.CTkButton(row, text="Choose Folder…", width=120,
+                            command=self._choose_batch_folder)
+        btn.pack(side="left")
+        self._batch_input_widgets.append(btn)
+        btn = ctk.CTkButton(row, text="Choose Files…", width=120,
+                            command=self._choose_batch_files)
+        btn.pack(side="left", padx=6)
+        self._batch_input_widgets.append(btn)
         self.batch_count_label = ctk.CTkLabel(row, text="No files chosen", text_color="gray")
         self.batch_count_label.pack(side="left", padx=6)
 
@@ -428,10 +436,12 @@ class App(ctk.CTk):
         row.pack(fill="x", pady=4)
         ctk.CTkLabel(row, text="Output folder:", width=100, anchor="w").pack(side="left")
         self.batch_output_var = ctk.StringVar(value="")
-        ctk.CTkEntry(row, textvariable=self.batch_output_var).pack(
-            side="left", fill="x", expand=True, padx=6)
-        ctk.CTkButton(row, text="Browse…", width=80,
-                      command=self._browse_batch_output).pack(side="left")
+        entry = ctk.CTkEntry(row, textvariable=self.batch_output_var)
+        entry.pack(side="left", fill="x", expand=True, padx=6)
+        btn = ctk.CTkButton(row, text="Browse…", width=80,
+                            command=self._browse_batch_output)
+        btn.pack(side="left")
+        self._batch_input_widgets += [entry, btn]
 
         # Name pattern
         row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -439,6 +449,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(row, text="Name pattern:", width=100, anchor="w").pack(side="left")
         self.pattern_entry = ctk.CTkEntry(row, textvariable=self.pattern_var)
         self.pattern_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self._batch_input_widgets.append(self.pattern_entry)
         self.pattern_error_label = ctk.CTkLabel(frame, text="", text_color="#D9534F",
                                                 font=small, height=16, anchor="w")
         self.pattern_error_label.pack(fill="x", padx=(106, 0))
@@ -450,12 +461,14 @@ class App(ctk.CTk):
         for index, name in enumerate(NAME_FIELDS):
             col = index % self.BATCH_FIELD_COLUMNS
             fields.grid_columnconfigure(col, weight=1, uniform="field")
-            ctk.CTkButton(fields, text=name, height=22, font=small,
-                          fg_color=("gray78", "gray28"), text_color=("gray10", "gray90"),
-                          hover_color=("gray70", "gray36"),
-                          command=lambda n=name: self._insert_pattern_field(n)).grid(
-                row=index // self.BATCH_FIELD_COLUMNS, column=col,
-                padx=2, pady=2, sticky="ew")
+            btn = ctk.CTkButton(fields, text=name, height=22, font=small,
+                                fg_color=("gray78", "gray28"),
+                                text_color=("gray10", "gray90"),
+                                hover_color=("gray70", "gray36"),
+                                command=lambda n=name: self._insert_pattern_field(n))
+            btn.grid(row=index // self.BATCH_FIELD_COLUMNS, column=col,
+                     padx=2, pady=2, sticky="ew")
+            self._batch_input_widgets.append(btn)
 
         ctk.CTkLabel(frame, text="One batch = one supplier's XML format. "
                                  "The mapping is taken from the first file.",
@@ -472,6 +485,7 @@ class App(ctk.CTk):
         self.btn_batch_preview = ctk.CTkButton(row, text="Preview First", width=110,
                                                command=self._batch_preview)
         self.btn_batch_preview.pack(side="left")
+        self._batch_input_widgets.append(self.btn_batch_preview)
         self.btn_batch_run = ctk.CTkButton(row, text="Generate All", width=110,
                                            fg_color="#2E86DE", state="disabled",
                                            command=self._batch_run)
@@ -485,18 +499,31 @@ class App(ctk.CTk):
         self.batch_progress_label = ctk.CTkLabel(row, text="", anchor="w")
         self.batch_progress_label.pack(side="left", fill="x", expand=True)
 
+    def _set_batch_inputs_enabled(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
+        for widget in self._batch_input_widgets:
+            widget.configure(state=state)
+
     def _insert_pattern_field(self, name: str):
+        # The guards below back up the disabled widgets: keyboard shortcuts or
+        # a queued click can still reach a handler while a run is going.
+        if self._batch_running:
+            return
         entry = self.pattern_entry
         entry.insert(entry.index("insert"), "{" + name + "}")
         entry.focus_set()
         self.pattern_error_label.configure(text="")
 
     def _choose_batch_folder(self):
+        if self._batch_running:
+            return
         folder = filedialog.askdirectory(title="Choose a folder of XML invoices")
         if folder:
             self._set_batch_inputs([folder], default_output=folder)
 
     def _choose_batch_files(self):
+        if self._batch_running:
+            return
         paths = filedialog.askopenfilenames(
             title="Choose XML invoices",
             filetypes=[("XML Files", "*.xml"), ("All Files", "*.*")],
@@ -505,6 +532,8 @@ class App(ctk.CTk):
             self._set_batch_inputs(list(paths), default_output=os.path.dirname(paths[0]))
 
     def _set_batch_inputs(self, paths: list[str], default_output: str):
+        if self._batch_running:
+            return
         self.batch_inputs = collect_xml_files(paths)
         self._invalidate_batch_plan()
         self._show_batch_list("")
@@ -520,6 +549,8 @@ class App(ctk.CTk):
         self._load_xml(self.batch_inputs[0])
 
     def _browse_batch_output(self):
+        if self._batch_running:
+            return
         d = filedialog.askdirectory(title="Choose the output folder")
         if d:
             self.batch_output_var.set(d)
@@ -605,7 +636,7 @@ class App(ctk.CTk):
         self._batch_running = True
         self._batch_stop_event.clear()
         self.btn_batch_run.configure(state="disabled")
-        self.btn_batch_preview.configure(state="disabled")
+        self._set_batch_inputs_enabled(False)
         self.btn_batch_stop.configure(state="normal")
         self.batch_progress.set(0)
         self.batch_progress_label.configure(text=f"0 of {total}")
@@ -643,8 +674,10 @@ class App(ctk.CTk):
         self.status_label.configure(text="Stopping after the current file...")
 
     def _on_batch_finished(self, plan, outcomes, result, error):
+        # Unlock first, before either outcome is reported, so no finish path
+        # can leave the inputs disabled.
         self._batch_running = False
-        self.btn_batch_preview.configure(state="normal")
+        self._set_batch_inputs_enabled(True)
         self.btn_batch_run.configure(state="normal")
         self.btn_batch_stop.configure(state="disabled")
 
