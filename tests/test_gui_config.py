@@ -19,7 +19,7 @@ pytestmark = pytest.mark.gui
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _run_in_gui(body: str, *args: str) -> str:
+def _run_in_gui(body: str, *args: str, timeout: float = 120) -> str:
     """Execute a snippet against a live App instance under a virtual display."""
     for module in ("tkinter", "customtkinter"):
         pytest.importorskip(module)
@@ -46,10 +46,24 @@ def _run_in_gui(body: str, *args: str) -> str:
     if not os.environ.get("DISPLAY"):
         command = ["xvfb-run", "-a", *command]
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    # Without a timeout a GUI that never returns (a modal dialog nobody
+    # dismisses, a stuck after() loop) hangs the whole suite with no output.
+    try:
+        result = subprocess.run(command, capture_output=True, text=True,
+                                timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(f"GUI run did not finish within {timeout:g}s "
+                    f"(a modal dialog or a hung event loop?)\n"
+                    f"{exc.stdout or ''}\n{exc.stderr or ''}")
     if result.returncode != 0:
         pytest.fail(f"GUI run failed:\n{result.stdout}\n{result.stderr}")
     return result.stdout
+
+
+def test_a_hung_gui_run_fails_instead_of_hanging(make_invoice):
+    with pytest.raises(pytest.fail.Exception, match="did not finish within 3s"):
+        _run_in_gui("import time; time.sleep(60)", make_invoice(items=1),
+                    timeout=3)
 
 
 @pytest.fixture
