@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from mapping import HEADER_SLOTS, MappingConfig
-from naming import NameAllocator, build_stem, sanitize, validate_pattern
+from naming import NameAllocator, build_stem, finalize_stem, validate_pattern
 from pdf_renderer import xml_to_pdf
 from xml_parser import InvoiceData
 
@@ -90,7 +90,9 @@ def plan_batch(xml_paths: list[str], config: MappingConfig, output_dir: str,
     allocator = NameAllocator(output_dir)
     files: list[PlannedFile] = []
     for source in xml_paths:
-        xml_stem = sanitize(os.path.splitext(os.path.basename(source))[0]) or "invoice"
+        # Same final step as pattern names: the fallback once skipped the
+        # reserved-name rule, so aux.xml became aux.pdf, unopenable on Windows.
+        xml_stem = finalize_stem(os.path.splitext(os.path.basename(source))[0]) or "invoice"
         stem, warnings, error = xml_stem, [], ""
         if pattern:
             try:

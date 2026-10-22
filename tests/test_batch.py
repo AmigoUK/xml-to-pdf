@@ -122,3 +122,16 @@ def test_on_done_reports_each_outcome_live(three_invoices, british_config, fonts
     assert [d[:3] for d in done] == [(1, 2, files[0]), (2, 2, str(bad))]
     assert done[0][3].endswith("INV-1.pdf") and done[0][4] is None
     assert done[1][3] is None and done[1][4]
+
+
+@pytest.mark.parametrize("xml_name,expected", [
+    ("aux.xml", "aux_.pdf"),                       # Windows-reserved name
+    ("ł" * 120 + ".xml", "ł" * 100 + ".pdf"),       # 240-byte stem, over the cap
+])
+def test_empty_pattern_fallback_obeys_name_rules(tmp_path, british_config,
+                                                 xml_name, expected):
+    # The XML-stem fallback once skipped the reserved-name and byte-cap rules
+    # that pattern names get, so aux.xml became an unopenable aux.pdf on Windows.
+    src = build_invoice_xml(str(tmp_path / xml_name))
+    plan = plan_batch([src], british_config, str(tmp_path / "out"), pattern="")
+    assert plan.files[0].filename == expected
