@@ -133,7 +133,21 @@ def main():
         parser.error("--name-pattern and --dry-run need --output-dir.")
     if args.output_dir and args.output:
         parser.error("-o/--output cannot be combined with --output-dir.")
-    if not args.output_dir and args.output and len(args.xml_files) > 1:
+
+    # Expand folders in place, keeping the caller's order and duplicates for
+    # plain file lists. Folder mode de-duplicates later, in collect_xml_files.
+    expanded = []
+    for arg in args.xml_files:
+        if os.path.isdir(arg):
+            found = collect_xml_files([arg])
+            if not found:
+                print("Error: no XML files found.", file=sys.stderr)
+                sys.exit(1)
+            expanded.extend(found)
+        else:
+            expanded.append(arg)
+
+    if args.output and len(expanded) > 1:
         parser.error("-o/--output only applies to a single input file.")
 
     # Load mapping config if specified
@@ -155,7 +169,7 @@ def main():
         _run_folder_mode(parser, args, mapping_config)
         return
 
-    xml_files = collect_xml_files(args.xml_files)
+    xml_files = expanded
     success, failed = 0, 0
     for xml_path in xml_files:
         try:

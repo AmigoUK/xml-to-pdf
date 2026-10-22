@@ -220,3 +220,47 @@ def test_cli_empty_folder_is_an_error(tmp_path):
     proc = run_cli(str(empty), "--output-dir", str(tmp_path / "o"), expect_success=False)
     assert proc.returncode == 1
     assert "no XML files found" in proc.stderr
+
+
+# ── Legacy path stays as it was when folders are accepted ─────────
+
+def test_cli_legacy_keeps_argument_order_and_duplicates(tmp_path, fonts_dir):
+    from conftest import build_invoice_xml
+    a = build_invoice_xml(str(tmp_path / "a.xml"))
+    b = build_invoice_xml(str(tmp_path / "b.xml"))
+    proc = run_cli(b, a, b, "--font-dir", fonts_dir)
+    ok = [l for l in proc.stdout.splitlines() if l.startswith("OK ")]
+    assert [l.split()[1] for l in ok] == [b, a, b]
+    assert "Done: 3 succeeded" in proc.stdout
+
+
+def test_cli_legacy_folder_converts_next_to_each_xml(two_invoices, fonts_dir):
+    run_cli(str(two_invoices), "--font-dir", fonts_dir)
+    assert os.path.exists(two_invoices / "a" / "invoice.pdf")
+    assert os.path.exists(two_invoices / "b" / "invoice.pdf")
+
+
+def test_cli_folder_with_o_and_several_xmls_is_a_usage_error(two_invoices, tmp_path):
+    proc = run_cli(str(two_invoices), "-o", str(tmp_path / "out.pdf"),
+                   expect_success=False)
+    assert proc.returncode == 2
+    assert "single input file" in proc.stderr
+    assert not os.path.exists(tmp_path / "out.pdf")
+
+
+def test_cli_legacy_empty_folder_is_an_error(tmp_path):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    proc = run_cli(str(empty), expect_success=False)
+    assert proc.returncode == 1
+    assert "no XML files found" in proc.stderr
+
+
+def test_cli_folder_mode_reports_a_broken_xml_live(two_invoices, tmp_path, fonts_dir):
+    (two_invoices / "bad.xml").write_text("<not-closed>", encoding="utf-8")
+    out = tmp_path / "out"
+    proc = run_cli(str(two_invoices), "--output-dir", str(out), "--font-dir", fonts_dir,
+                   expect_success=False)
+    assert proc.returncode == 1
+    assert "FAIL" in proc.stderr and "/3]" in proc.stderr
+    assert "Done: 2 succeeded, 1 failed" in proc.stdout
