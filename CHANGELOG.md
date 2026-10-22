@@ -16,12 +16,15 @@ _Nothing yet._
   as `invoice.xml`, one per folder, so a batch gave a pile of identically named
   PDFs. A name pattern such as `{period}_{invoice_number}_{supplier_name}` now
   builds each name from the invoice's header fields; `period` is `YYYY-MM` of the
-  issue date (ISO, `DD.MM.YYYY` and `DD/MM/YYYY` are read). Unknown fields are
-  rejected before anything is written.
+  issue date (ISO, `DD.MM.YYYY` and `DD/MM/YYYY`, padded or not, are read).
+  Unknown fields, including wrongly cased ones such as `{Period}`, are rejected
+  by name before anything is written.
 - **Safe, never-overwriting names.** Characters illegal on Windows are dropped
-  (`FV/2026/10` becomes `FV202610`), reserved names such as `CON` get an `_`, and
-  names are capped at 200 characters, so a batch made on Linux copies cleanly to
-  Windows. A missing value becomes `no-<field>` with a warning instead of
+  (`FV/2026/10` becomes `FV202610`), leading dots are removed so no PDF is
+  hidden, reserved names such as `CON` get an `_`, and names are capped at 200
+  bytes of UTF-8 (Linux and macOS limit names to 255 bytes), so a batch made on
+  Linux copies cleanly to Windows. The same rules apply to the XML-name fallback
+  of an empty pattern. A missing value becomes `no-<field>` with a warning instead of
   stopping the run. Colliding names, or names already on disk, get `_2`, `_3`, …
   (case-insensitive); nothing is overwritten.
 - **CLI:** `--output-dir`, `--name-pattern` and `--dry-run`. Folders given as
@@ -31,7 +34,9 @@ _Nothing yet._
   pattern from clickable field names, **Preview First** (renders the first invoice
   and lists every planned name), then **Generate All** with "X of Y" progress and
   a **Stop** button. The work runs in the background, so the window stays
-  responsive; a file that fails is reported and the rest continue.
+  responsive; a file that fails is reported and the rest continue. The selected
+  profile's mapping is kept when the batch's first file is loaded, and closing
+  the window mid-batch finishes the current file first.
 - `filename_pattern` on mapping profiles, saved and loaded with the profile.
   Existing profiles load unchanged and the bundled `configs/*.json` are untouched.
 - `naming.py` and `batch.py`, shared by the CLI and the GUI.

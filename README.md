@@ -220,27 +220,32 @@ totals) by their slot id (see [Available mapping slots](#available-mapping-slots
 plus one derived field:
 
 - `period` — year and month of `issue_date` as `YYYY-MM`. It reads `YYYY-MM-DD`
-  (with or without a time), `DD.MM.YYYY` and `DD/MM/YYYY`.
+  (with or without a time), `DD.MM.YYYY` and `DD/MM/YYYY`; day and month may be
+  unpadded (`1.3.2026`).
 
 Item-level fields (product, lot, quantity) are not available: an invoice has many
-items, so there is no single value. An unknown field is an error shown before
-anything is written.
+items, so there is no single value. An unknown field (field names are lower
+case: `{Period}` is unknown) is an error shown before anything is written.
 
 Values are used as they appear in the XML, not as they are formatted on the PDF.
 
 - **Unsafe characters are dropped**, not replaced: `FV/2026/10` becomes
-  `FV202610`. This covers `/ \ : * ? " < > |`, control characters, repeated
-  whitespace and trailing dots. The same rules apply on every OS, so a batch made
-  on Linux copies cleanly to Windows.
+  `FV202610`. This covers `/ \ : * ? " < > |`, control characters, and leading
+  and trailing dots (a leading dot would make a hidden file). Repeated whitespace,
+  tabs and line breaks are collapsed to one space. The same rules apply on every
+  OS, so a batch made on Linux copies cleanly to Windows.
 - **Windows reserved names** (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`,
-  `LPT1`–`LPT9`) get an `_` appended, and names are capped at 200 characters.
+  `LPT1`–`LPT9`) get an `_` appended, and names are capped at 200 bytes of UTF-8
+  (200 ASCII characters, fewer for accented letters), because Linux and macOS
+  limit a file name to 255 bytes.
 - **Missing values**: a field that is empty or missing (or a `period` whose date
   cannot be read) becomes `no-<field>`, for example `no-supplier_name`, and the
   file is flagged with a warning. The PDF is still generated.
 - **Nothing is overwritten.** If two invoices produce the same name, or the file
   already exists in the output folder, `_2`, `_3`, … is added before `.pdf`
   (`2026-10_Acme.pdf`, `2026-10_Acme_2.pdf`). The comparison ignores case.
-- An empty pattern names each PDF after its XML (`invoice.pdf`, `invoice_2.pdf`, …).
+- An empty pattern names each PDF after its XML (`invoice.pdf`, `invoice_2.pdf`, …),
+  with the same reserved-name and length rules.
 
 The pattern is saved in the mapping profile (`filename_pattern`), so it travels
 with the mapping. Profiles without one keep working, and the bundled profiles do
@@ -252,7 +257,8 @@ Open the **Batch** tab:
 
 1. **Choose Folder…** (every `*.xml` below it, recursively) or **Choose Files…**.
 2. Pick the **Output folder** and write the **Name pattern**; click a field name
-   to insert it. Mistakes in the pattern are shown next to the box.
+   to insert it. Mistakes in the pattern are shown under the box when you press
+   **Preview First** or **Generate All**.
 3. **Preview First** renders the first invoice into the Preview tab and lists every
    planned name, with warnings for missing fields and the `_2` / `_3` suffixes.
    Check the mapping tab if the preview looks wrong.
@@ -260,7 +266,10 @@ Open the **Batch** tab:
    **Stop** finishes the current file and skips the rest.
 
 A summary lists how many succeeded and failed, and the reason for each failure.
-**Save config** stores the pattern with the profile.
+**Save Config** (in the bottom bar) stores the pattern with the profile. A batch
+uses the mapping of the profile selected in **Config**; with **Default** it uses
+the auto-matched mapping of the first file. Closing the window during a batch
+stops it after the current file, so no half-written PDF is left behind.
 
 ### In the CLI
 
