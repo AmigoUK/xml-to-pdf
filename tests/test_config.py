@@ -138,3 +138,14 @@ def test_an_unknown_name_resolves_to_nothing():
     from mapping import resolve_config_path
 
     assert resolve_config_path("klingon") is None
+
+
+def test_filename_pattern_round_trips(tmp_path):
+    p = str(tmp_path / "c.json")
+    save_config(p, MappingConfig(filename_pattern="{period}_{invoice_number}"))
+    assert load_config(p).filename_pattern == "{period}_{invoice_number}"
+
+
+def test_shipped_profiles_have_no_pattern():
+    for f in CONFIG_FILES:
+        assert load_config(f).filename_pattern == ""

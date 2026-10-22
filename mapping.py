@@ -233,6 +233,9 @@ class MappingConfig:
     font_dir: str | None = None
     header_xpath: str = DEFAULT_HEADER_XPATH
     item_xpath: str = DEFAULT_ITEM_XPATH
+    # Output PDF name pattern for batch runs, e.g. "{period}_{invoice_number}".
+    # Empty means "name the PDF after its XML file".
+    filename_pattern: str = ""
 
     def get(self, slot_id: str) -> str:
         """Return the XML tag mapped to a slot, or empty string if unmapped."""
@@ -409,4 +412,5 @@ def load_config(path: str) -> MappingConfig:
         font_dir=data.get("font_dir"),
         header_xpath=data.get("header_xpath") or DEFAULT_HEADER_XPATH,
         item_xpath=data.get("item_xpath") or DEFAULT_ITEM_XPATH,
+        filename_pattern=data.get("filename_pattern", ""),
     )
