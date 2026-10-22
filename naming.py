@@ -26,9 +26,11 @@ NAME_FIELDS: list[str] = [
     if slot in HEADER_SLOTS
 ] + [PERIOD_FIELD]
 
-# Leaves room for a "_NN" suffix and ".pdf" under the common 255-byte limit
-# even when every character is multi-byte.
-MAX_STEM_LEN = 200
+# ext4 and APFS cap a file name at 255 UTF-8 *bytes*, not characters: a
+# 200-character cap let 150 x "ł" (300 bytes) through preview and dry-run and
+# then failed at write with "File name too long". 200 bytes leaves room for a
+# "_NN" suffix and ".pdf".
+MAX_STEM_BYTES = 200
 
 _TOKEN_RE = re.compile(r"\{([a-z0-9_]+)\}")
 
@@ -128,15 +130,26 @@ def build_stem(pattern: str, values: dict[str, str]) -> tuple[str, list[str]]:
             return f"no-{name}"
         return value
 
-    stem = sanitize(_TOKEN_RE.sub(expand, pattern))
+    return finalize_stem(_TOKEN_RE.sub(expand, pattern)), warnings
+
+
+def finalize_stem(stem: str) -> str:
+    """Apply the whole-name rules: sanitise, reserved names, byte cap.
+
+    Every stem that becomes a file name goes through here, including the
+    XML-file-name fallback, so no path can skip a rule.
+    """
+    stem = sanitize(stem)
 
     # Windows refuses these names even with an extension (CON.pdf).
     head, dot, rest = stem.partition(".")
     if head.strip().upper() in _RESERVED:
         stem = head + "_" + dot + rest
 
-    stem = stem[:MAX_STEM_LEN].rstrip(" .")
-    return stem, warnings
+    # errors="ignore" drops a multi-byte character cut in half by the slice,
+    # so the cap never produces invalid UTF-8.
+    stem = stem.encode("utf-8")[:MAX_STEM_BYTES].decode("utf-8", errors="ignore")
+    return stem.rstrip(" .")
 
 
 # ── Allocation ────────────────────────────────────────────────────

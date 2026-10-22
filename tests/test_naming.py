@@ -1,6 +1,6 @@
 import pytest
 from naming import (NAME_FIELDS, NameAllocator, PatternError, build_stem, parse_period,
-                    sanitize, validate_pattern, MAX_STEM_LEN)
+                    sanitize, validate_pattern, MAX_STEM_BYTES)
 
 V = {"issue_date": "2026-10-22", "invoice_number": "FV/2026/10",
      "supplier_name": "Acme Ltd"}
@@ -61,7 +61,7 @@ def test_reserved_windows_names_get_underscore(value):
 
 def test_stem_is_capped():
     stem, _ = build_stem("{supplier_name}", {"supplier_name": "x" * 500})
-    assert len(stem) == MAX_STEM_LEN
+    assert len(stem) == MAX_STEM_BYTES
 
 def test_allocator_suffixes_duplicates_in_batch(tmp_path):
     a = NameAllocator(str(tmp_path))
@@ -80,3 +80,15 @@ def test_allocator_sees_files_created_after_snapshot(tmp_path):
 
 def test_allocator_on_missing_folder(tmp_path):
     assert NameAllocator(str(tmp_path / "new")).allocate("a") == "a.pdf"
+
+def test_stem_is_capped_in_utf8_bytes_and_writable(tmp_path):
+    # ext4/APFS limit a name to 255 *bytes*; 150 two-byte letters are 300.
+    stem, _ = build_stem("{supplier_name}", {"supplier_name": "ł" * 150})
+    assert len(stem.encode("utf-8")) <= MAX_STEM_BYTES
+    assert stem == "ł" * 100
+    (tmp_path / (stem + "_99.pdf")).write_bytes(b"x")   # must not raise ENAMETOOLONG
+
+def test_byte_cap_never_splits_a_character():
+    # 199 ASCII bytes + a 2-byte letter would be 201: the letter is dropped whole.
+    stem, _ = build_stem("{supplier_name}", {"supplier_name": "x" * 199 + "ł" * 5})
+    assert stem == "x" * 199
