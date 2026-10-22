@@ -92,3 +92,16 @@ def test_byte_cap_never_splits_a_character():
     # 199 ASCII bytes + a 2-byte letter would be 201: the letter is dropped whole.
     stem, _ = build_stem("{supplier_name}", {"supplier_name": "x" * 199 + "ł" * 5})
     assert stem == "x" * 199
+
+@pytest.mark.parametrize("value,expected", [
+    (".hidden", "hidden"), ("...x", "x"), (". .x", "x"), ("..", "no-invoice_number"),
+])
+def test_leading_dots_are_stripped(value, expected):
+    # A name starting with "." is a hidden file on macOS and Linux.
+    assert build_stem("{invoice_number}", {"invoice_number": value})[0] == expected
+
+def test_leading_dot_in_pattern_literal_is_stripped():
+    assert build_stem(".{invoice_number}", {"invoice_number": "A"})[0] == "A"
+
+def test_reserved_name_check_runs_after_leading_dots_go():
+    assert build_stem("{invoice_number}", {"invoice_number": ".con"})[0] == "con_"

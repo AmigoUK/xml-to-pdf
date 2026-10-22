@@ -139,7 +139,10 @@ def finalize_stem(stem: str) -> str:
     Every stem that becomes a file name goes through here, including the
     XML-file-name fallback, so no path can skip a rule.
     """
-    stem = sanitize(stem)
+    # A leading dot makes a hidden file on macOS and Linux, so the PDF would
+    # seem never to have been written. Stripped before the reserved-name check
+    # so ".con" still becomes "con_".
+    stem = sanitize(stem).lstrip(" .")
 
     # Windows refuses these names even with an extension (CON.pdf).
     head, dot, rest = stem.partition(".")
