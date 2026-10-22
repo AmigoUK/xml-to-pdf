@@ -35,7 +35,9 @@ tests skip when missing):
 - `xvfb` — to drive the GUI headlessly
 
 CI: GitHub Actions. Release binaries build on `windows-latest`,
-`ubuntu-latest`, `macos-latest` (arm64) and `macos-13` (Intel, best effort).
+`ubuntu-latest` and `macos-latest` (arm64). There is no Intel macOS job: the
+`macos-13` one was never scheduled, and its 24-hour queue timeout left every
+release run marked cancelled, so it was removed in v0.6.2.
 
 **reportlab spans a major version on purpose.** `>=4.0` means users get 5.x;
 run the suite against both before trusting a rendering change.
@@ -120,10 +122,9 @@ why and what evidence proves it. Pushing a `vX.Y.Z` tag runs the suite, then
 builds, smoke-tests and uploads the platform binaries.
 
 Every release body must say that **there is no Intel (x86_64) macOS binary**
-and point at the README's "Intel Macs: run from source" section. The
-best-effort `macos-13` job has never been scheduled, so silence on the point
-reads as an oversight to anyone on an Intel Mac. Drop this line only once a
-release actually ships that binary.
+and point at the README's "Intel Macs: run from source" section. No release
+builds that binary, so silence on the point reads as an oversight to anyone on
+an Intel Mac. Drop this line only once a release actually ships it.
 
 # Protected Files
 

@@ -53,8 +53,8 @@ convention.
 ### Intel Macs: run from source
 
 **There is no Intel (x86_64) macOS binary.** GitHub is retiring its x86_64
-macOS runners and the best-effort build job has never been scheduled, so no
-release carries one. An Intel Mac cannot run the Apple-silicon binary either —
+macOS runners, and the `macos-13` build job was never scheduled in any release,
+so it has been removed. An Intel Mac cannot run the Apple-silicon binary either —
 Rosetta translates Intel code to run on Apple silicon, not the other way round.
 
 Running from source works fully, GUI included. It takes about a minute:

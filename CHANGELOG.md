@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.6.2] — 2026-10-22
+
+### Removed
+- The `build-macos-intel` release job. Its `macos-13` runner was never
+  scheduled in any release, and `timeout-minutes` does not count queue time,
+  so the job sat queued until GitHub's 24-hour limit cancelled it. That marked
+  every release run from v0.5.0 to v0.6.1 as cancelled, even though the
+  Windows, Linux and Apple-silicon binaries and `SHA256SUMS.txt` were all
+  published. No release has ever shipped an Intel macOS binary; the README's
+  "Intel Macs: run from source" section is unchanged.
+
 ## [0.6.1] — 2026-09-02
 
 ### Added
@@ -258,7 +269,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.2
 [0.6.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.0
 [0.5.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.5.1
