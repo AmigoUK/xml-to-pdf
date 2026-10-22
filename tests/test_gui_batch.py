@@ -284,11 +284,22 @@ real_destroy = app.destroy
 def fake_destroy():
     files = sorted(os.listdir({str(out_dir)!r})) if os.path.isdir({str(out_dir)!r}) else []
     tails = [open(os.path.join({str(out_dir)!r}, f), "rb").read()[-1024:] for f in files]
-    closed.append((files, all(b"%%EOF" in t for t in tails)))
+    closed.append((files, all(b"%%EOF" in t for t in tails), len(finished)))
 app.destroy = fake_destroy
+# Hold the worker inside the first file so the close lands mid-file every
+# time; a real render is fast enough to finish between two polls.
+import batch, threading, time
+started, finished = threading.Event(), []
+real_render = batch.xml_to_pdf
+def slow_render(*a, **kw):
+    started.set()
+    time.sleep(0.5)
+    result = real_render(*a, **kw)
+    finished.append(a[1])
+    return result
+batch.xml_to_pdf = slow_render
 app._batch_run()
-# Close while a file is being written, which is when killing the worker hurts.
-pump(lambda: app.batch_progress_label.cget("text").startswith("1 of 2"), 30)
+pump(started.is_set, 30)
 app._on_closing()
 print("IMMEDIATE_CLOSE:", bool(closed))
 print("STATUS:", app.status_label.cget("text"))
@@ -298,11 +309,13 @@ pump(lambda: bool(closed), 60)
 app.destroy = real_destroy
 print("FILES:", closed[0][0])
 print("COMPLETE:", closed[0][1])
+print("RENDERED_BEFORE_CLOSE:", closed[0][2])
 """, two_invoices)
     assert "IMMEDIATE_CLOSE: False" in out, out
     assert "SECOND_CLOSE: False" in out, out
     assert "STATUS: Stopping after the current file" in out, out
     assert "COMPLETE: True" in out, out
     # The file being written when the window was closed is finished, not cut
-    # off; normally the stop then keeps the second from starting.
-    assert "FILES: ['2026-03_INV-1.pdf'" in out, out
+    # off, and the stop keeps the second from starting.
+    assert "RENDERED_BEFORE_CLOSE: 1" in out, out
+    assert "FILES: ['2026-03_INV-1.pdf']" in out, out
