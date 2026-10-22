@@ -60,6 +60,8 @@ in one deliberate change, not as something to drift into halfway.
 | `xml_invoice_to_pdf.py` | CLI entry point, argument parsing |
 | `pdf_renderer.py` | All drawing, pagination, amount parsing, GS1-128 encoding |
 | `xml_parser.py` | Parsing, namespace flattening, schema discovery |
+| `naming.py` | Name patterns, sanitising, collision-free PDF names |
+| `batch.py` | Batch planning and running, shared by CLI and GUI |
 | `mapping.py` | Slots, `MappingConfig`, auto-matching, JSON profiles |
 | `gui.py` | CustomTkinter window |
 | `preview.py` | PDF → image for the preview tab |

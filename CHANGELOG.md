@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet._
 
+## [0.7.0] — 2026-10-22
+
+### Added
+- **Batch conversion with pattern-based PDF names.** Invoice XMLs often arrive
+  as `invoice.xml`, one per folder, so a batch gave a pile of identically named
+  PDFs. A name pattern such as `{period}_{invoice_number}_{supplier_name}` now
+  builds each name from the invoice's header fields; `period` is `YYYY-MM` of the
+  issue date (ISO, `DD.MM.YYYY` and `DD/MM/YYYY` are read). Unknown fields are
+  rejected before anything is written.
+- **Safe, never-overwriting names.** Characters illegal on Windows are dropped
+  (`FV/2026/10` becomes `FV202610`), reserved names such as `CON` get an `_`, and
+  names are capped at 200 characters, so a batch made on Linux copies cleanly to
+  Windows. A missing value becomes `no-<field>` with a warning instead of
+  stopping the run. Colliding names, or names already on disk, get `_2`, `_3`, …
+  (case-insensitive); nothing is overwritten.
+- **CLI:** `--output-dir`, `--name-pattern` and `--dry-run`. Folders given as
+  arguments are searched recursively. `--dry-run` prints the planned names and
+  warnings and writes nothing. Progress lines carry a counter (`[3/40] OK ...`).
+- **GUI:** a Batch tab. Choose a folder or files, pick the output folder, build the
+  pattern from clickable field names, **Preview First** (renders the first invoice
+  and lists every planned name), then **Generate All** with "X of Y" progress and
+  a **Stop** button. The work runs in the background, so the window stays
+  responsive; a file that fails is reported and the rest continue.
+- `filename_pattern` on mapping profiles, saved and loaded with the profile.
+  Existing profiles load unchanged and the bundled `configs/*.json` are untouched.
+- `naming.py` and `batch.py`, shared by the CLI and the GUI.
+
+### Changed
+- One batch is one supplier's XML format: the mapping from the first file is
+  applied to every file, and a file that does not fit fails on its own.
+- Without `--output-dir` the CLI behaves exactly as before, even if the profile
+  carries a pattern, so existing scripts are unaffected.
+
 ## [0.6.2] — 2026-10-22
 
 ### Removed
@@ -269,7 +302,8 @@ entry covers the audit fixes applied on top of it.
   payloads are therefore unreachable regardless of the Python/expat version,
   rather than relying on the runtime's own amplification limits.
 
-[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/AmigoUK/xml-to-pdf/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.7.0
 [0.6.2]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.2
 [0.6.1]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AmigoUK/xml-to-pdf/releases/tag/v0.6.0

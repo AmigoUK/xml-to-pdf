@@ -2,7 +2,7 @@
 
 A Python tool for exporting XML invoice files to professionally formatted PDF documents.
 
-[![version](https://img.shields.io/badge/version-0.6.1-blue)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-0.7.0-blue)](CHANGELOG.md)
 
 ## Features
 
@@ -15,6 +15,9 @@ A Python tool for exporting XML invoice files to professionally formatted PDF do
 - Tolerant amount parsing: `1,50`, `1 234,56`, `1.234,56` and `1,234.56` all work
 - GUI mode (CustomTkinter) for visual field mapping and one-click PDF generation
 - CLI mode for single-file or batch conversion
+- Batch conversion of a folder (or a selection) of invoices, with PDF names built from
+  invoice fields such as the period, invoice number and supplier — see
+  [Batch conversion and file naming](#batch-conversion-and-file-naming)
 
 ## Download
 
@@ -171,6 +174,9 @@ python xml_invoice_to_pdf.py invoice.xml -o output.pdf
 # Batch convert multiple files
 python xml_invoice_to_pdf.py *.xml
 
+# Convert a folder into named PDFs (see "Batch conversion and file naming")
+python xml_invoice_to_pdf.py invoices/ --output-dir out --name-pattern "{period}_{invoice_number}"
+
 # Skip barcode pages
 python xml_invoice_to_pdf.py invoice.xml --no-barcodes
 
@@ -189,6 +195,96 @@ python xml_invoice_to_pdf.py --version
 ```bash
 python xml_invoice_to_pdf.py --gui
 ```
+
+## Batch conversion and file naming
+
+Invoice XMLs often arrive as `invoice.xml`, one per folder. Batch mode converts a
+whole folder (or a selection of files) into one output folder and names each PDF
+after what the invoice says, so you do not end up with a pile of `invoice.pdf`.
+
+**One batch = one supplier's XML format.** The mapping is taken from the first
+file and applied to every file in the batch. A file that does not fit fails on
+its own, with its reason, and the rest carry on.
+
+### Name patterns
+
+A pattern is free text with field names in braces. The `.pdf` extension is added
+for you.
+
+```
+{period}_{invoice_number}_{supplier_name}   ->   2026-10_FV-123-2026_Acme Ltd.pdf
+```
+
+Available fields are the header slots (supplier, buyer, invoice details and
+totals) by their slot id (see [Available mapping slots](#available-mapping-slots)),
+plus one derived field:
+
+- `period` — year and month of `issue_date` as `YYYY-MM`. It reads `YYYY-MM-DD`
+  (with or without a time), `DD.MM.YYYY` and `DD/MM/YYYY`.
+
+Item-level fields (product, lot, quantity) are not available: an invoice has many
+items, so there is no single value. An unknown field is an error shown before
+anything is written.
+
+Values are used as they appear in the XML, not as they are formatted on the PDF.
+
+- **Unsafe characters are dropped**, not replaced: `FV/2026/10` becomes
+  `FV202610`. This covers `/ \ : * ? " < > |`, control characters, repeated
+  whitespace and trailing dots. The same rules apply on every OS, so a batch made
+  on Linux copies cleanly to Windows.
+- **Windows reserved names** (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`,
+  `LPT1`–`LPT9`) get an `_` appended, and names are capped at 200 characters.
+- **Missing values**: a field that is empty or missing (or a `period` whose date
+  cannot be read) becomes `no-<field>`, for example `no-supplier_name`, and the
+  file is flagged with a warning. The PDF is still generated.
+- **Nothing is overwritten.** If two invoices produce the same name, or the file
+  already exists in the output folder, `_2`, `_3`, … is added before `.pdf`
+  (`2026-10_Acme.pdf`, `2026-10_Acme_2.pdf`). The comparison ignores case.
+- An empty pattern names each PDF after its XML (`invoice.pdf`, `invoice_2.pdf`, …).
+
+The pattern is saved in the mapping profile (`filename_pattern`), so it travels
+with the mapping. Profiles without one keep working, and the bundled profiles do
+not set one.
+
+### In the GUI
+
+Open the **Batch** tab:
+
+1. **Choose Folder…** (every `*.xml` below it, recursively) or **Choose Files…**.
+2. Pick the **Output folder** and write the **Name pattern**; click a field name
+   to insert it. Mistakes in the pattern are shown next to the box.
+3. **Preview First** renders the first invoice into the Preview tab and lists every
+   planned name, with warnings for missing fields and the `_2` / `_3` suffixes.
+   Check the mapping tab if the preview looks wrong.
+4. **Generate All** converts the batch in the background, showing **X of Y**.
+   **Stop** finishes the current file and skips the rest.
+
+A summary lists how many succeeded and failed, and the reason for each failure.
+**Save config** stores the pattern with the profile.
+
+### In the CLI
+
+Batch mode starts when you give `--output-dir`. Folders are searched recursively;
+files are processed in sorted order.
+
+```bash
+# Preview the names; nothing is written
+python xml_invoice_to_pdf.py invoices/ --output-dir out --dry-run
+
+# Convert, naming PDFs from the invoices
+python xml_invoice_to_pdf.py invoices/ --output-dir out --name-pattern "{period}_{invoice_number}"
+
+# Use the pattern saved in a profile
+python xml_invoice_to_pdf.py invoices/ --output-dir out --config configs/mine.json
+```
+
+`--name-pattern` overrides the profile's pattern for that run. `--name-pattern` and
+`--dry-run` need `--output-dir`. Progress lines carry a counter
+(`[3/40] OK invoices/a/invoice.xml -> out/2026-10_FV-3.pdf`), the run ends with
+`Done: N succeeded, N failed`, and the exit code is non-zero if any file failed.
+
+Without `--output-dir` the CLI behaves exactly as before: each PDF is written next
+to its XML (or to `-o` for a single file), even if the profile has a pattern.
 
 ## Screenshots
 
@@ -364,6 +460,8 @@ Any slot left out of the mappings will simply be blank on the PDF.
 xml_invoice_to_pdf.py  — CLI entry point
 pdf_renderer.py        — PDF drawing, pagination, amount parsing, GS1-128 encoding
 xml_parser.py          — XML invoice parsing and field discovery
+naming.py              — Name patterns, sanitising, collision-free PDF names
+batch.py               — Batch planning and running (shared by CLI and GUI)
 mapping.py             — Field mapping configuration and auto-matching
 gui.py                 — CustomTkinter GUI
 preview.py             — PDF preview helper
