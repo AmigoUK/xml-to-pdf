@@ -546,7 +546,7 @@ class App(ctk.CTk):
                                          text_color=("gray10", "gray90"))
         self.batch_output_var.set(default_output)
         # The whole batch is converted with the mapping of its first file.
-        self._load_xml(self.batch_inputs[0])
+        self._load_batch_xml(self.batch_inputs[0])
 
     def _browse_batch_output(self):
         if self._batch_running:
@@ -554,6 +554,23 @@ class App(ctk.CTk):
         d = filedialog.askdirectory(title="Choose the output folder")
         if d:
             self.batch_output_var.set(d)
+
+    def _load_batch_xml(self, path: str) -> bool:
+        """Load the batch's first XML without losing the selected profile.
+
+        _load_xml() auto-matches every slot. On its own that silently replaced
+        a chosen profile's mapping while the Config dropdown still named the
+        profile, so the batch was named and rendered with a mapping the user
+        never picked, and Save Config could write it over the profile. The
+        XML still supplies the discovered XPaths; the profile's slots win.
+        """
+        if not self._load_xml(path):
+            return False
+        if self.loaded_config is not None and self.config_var.get() != "Default":
+            self._apply_profile_mappings(self.loaded_config)
+            self.status_label.configure(
+                text=f"Using the mapping of profile: {self.config_var.get()}")
+        return True
 
     def _invalidate_batch_plan(self):
         self.batch_plan = None
@@ -586,7 +603,8 @@ class App(ctk.CTk):
 
         # Another XML may have been opened from the top bar since the batch was
         # chosen; the batch's mapping must come from its own first file.
-        if self.xml_path != self.batch_inputs[0] and not self._load_xml(self.batch_inputs[0]):
+        if (self.xml_path != self.batch_inputs[0]
+                and not self._load_batch_xml(self.batch_inputs[0])):
             self._invalidate_batch_plan()
             return None
 
@@ -954,11 +972,14 @@ class App(ctk.CTk):
         self.font_dir_var.set(config.font_dir or "")
         self.pattern_var.set(config.filename_pattern or "")
 
+        self._apply_profile_mappings(config)
+
+        self.status_label.configure(text=f"Loaded config: {value}")
+
+    def _apply_profile_mappings(self, config: MappingConfig):
         for slot, var in self.slot_vars.items():
             tag = config.mappings.get(slot, "")
             var.set(tag if tag else NONE_TAG)
-
-        self.status_label.configure(text=f"Loaded config: {value}")
 
     def _on_closing(self):
         from preview import cleanup_temp_files

@@ -228,3 +228,47 @@ print("LIST:", app.batch_list.get("1.0", "end"))
     assert "COUNT: 2 XML files" in out, out
     assert "UNLOCKED: True" in out, out
     assert "o0.xml" not in out.split("LIST:")[1], out
+
+
+def test_batch_keeps_the_selected_profiles_mapping(two_invoices, tmp_path):
+    # Choosing a folder loads its first XML, which auto-matches every slot.
+    # That used to overwrite the selected profile's mapping while the Config
+    # dropdown still named the profile, so the batch was named and rendered
+    # with a mapping the user never chose, and Save Config could persist it.
+    import dataclasses
+    from conftest import build_invoice_xml
+    from mapping import load_config, save_config
+    profile = tmp_path / "custom.json"
+    base = load_config(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "configs", "british_english.json"))
+    cfg = dataclasses.replace(base, name="custom",
+                              mappings={**base.mappings, "invoice_number": "SupplierName"},
+                              filename_pattern="{invoice_number}")
+    save_config(str(profile), cfg)
+
+    other = tmp_path / "other.xml"
+    build_invoice_xml(str(other))
+
+    out = _run_in_gui(f"""
+app._find_config = lambda name: {str(profile)!r}
+app.config_var.set("custom")
+app._on_config_selected("custom")
+filedialog.askdirectory = lambda **kw: {two_invoices!r}
+app._choose_batch_folder()
+print("AFTER_CHOOSE:", app.slot_vars["invoice_number"].get())
+app.batch_output_var.set({str(tmp_path / "out")!r})
+app._make_batch_plan()
+print("LIST1:", app.batch_list.get("1.0", "end").replace(chr(10), " | "))
+# Opening another XML from the top bar makes the next plan reload the batch's
+# first file: the re-plan path must keep the profile too.
+app._load_xml({str(other)!r})
+app._make_batch_plan()
+print("AFTER_REPLAN:", app.slot_vars["invoice_number"].get())
+print("LIST2:", app.batch_list.get("1.0", "end").replace(chr(10), " | "))
+""", two_invoices)
+    assert "AFTER_CHOOSE: SupplierName" in out, out
+    assert "AFTER_REPLAN: SupplierName" in out, out
+    for tag in ("LIST1:", "LIST2:"):
+        line = next(l for l in out.splitlines() if l.startswith(tag))
+        assert "Test Supplier Ltd.pdf" in line and "Test Supplier Ltd_2.pdf" in line, out
+        assert "INV-1" not in line.split("←")[0], out
