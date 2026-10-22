@@ -29,6 +29,8 @@ from mapping import (
     DEFAULT_MAPPINGS, save_config, load_config, auto_match_fields, resolve_xpaths,
 )
 from pdf_renderer import xml_to_pdf
+from batch import collect_xml_files, header_values, plan_batch, run_batch
+from naming import NAME_FIELDS, PatternError, build_stem, validate_pattern
 from preview import HAS_PYMUPDF, HAS_PIL, render_pdf_page, get_page_count, open_in_viewer
 
 # Where new profiles are saved; config_dirs() is what gets listed.
@@ -61,6 +63,14 @@ class App(ctk.CTk):
         self.preview_page_count = 0
         self._temp_files: list[str] = []
         self._preview_temp: str | None = None
+
+        # Created before the tabs: the Batch tab binds an entry to it, and
+        # _build_config() reads it whichever tab the user is on.
+        self.pattern_var = ctk.StringVar(value="")
+        self.batch_inputs: list[str] = []
+        self.batch_plan = None
+        self._batch_stop_event = threading.Event()
+        self._batch_running = False
 
         self._build_top_bar()
         self._build_tabs()
@@ -120,10 +130,12 @@ class App(ctk.CTk):
         self.tab_mapping = self.tabview.add("Field Mapping")
         self.tab_options = self.tabview.add("Options")
         self.tab_preview = self.tabview.add("Preview")
+        self.tab_batch = self.tabview.add("Batch")
 
         self._build_mapping_tab()
         self._build_options_tab()
         self._build_preview_tab()
+        self._build_batch_tab()
 
     # ── Field Mapping tab ───────────────────────────────
 
@@ -392,6 +404,272 @@ class App(ctk.CTk):
         else:
             messagebox.showinfo("Preview", "No PDF generated yet.")
 
+    # ── Batch tab ───────────────────────────────────────
+
+    BATCH_FIELD_COLUMNS = 5
+
+    def _build_batch_tab(self):
+        frame = ctk.CTkFrame(self.tab_batch, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=8, pady=4)
+        small = ctk.CTkFont(size=11)
+
+        # Inputs
+        row = ctk.CTkFrame(frame, fg_color="transparent")
+        row.pack(fill="x", pady=(0, 4))
+        ctk.CTkButton(row, text="Choose Folder…", width=120,
+                      command=self._choose_batch_folder).pack(side="left")
+        ctk.CTkButton(row, text="Choose Files…", width=120,
+                      command=self._choose_batch_files).pack(side="left", padx=6)
+        self.batch_count_label = ctk.CTkLabel(row, text="No files chosen", text_color="gray")
+        self.batch_count_label.pack(side="left", padx=6)
+
+        # Output folder
+        row = ctk.CTkFrame(frame, fg_color="transparent")
+        row.pack(fill="x", pady=4)
+        ctk.CTkLabel(row, text="Output folder:", width=100, anchor="w").pack(side="left")
+        self.batch_output_var = ctk.StringVar(value="")
+        ctk.CTkEntry(row, textvariable=self.batch_output_var).pack(
+            side="left", fill="x", expand=True, padx=6)
+        ctk.CTkButton(row, text="Browse…", width=80,
+                      command=self._browse_batch_output).pack(side="left")
+
+        # Name pattern
+        row = ctk.CTkFrame(frame, fg_color="transparent")
+        row.pack(fill="x", pady=(4, 0))
+        ctk.CTkLabel(row, text="Name pattern:", width=100, anchor="w").pack(side="left")
+        self.pattern_entry = ctk.CTkEntry(row, textvariable=self.pattern_var)
+        self.pattern_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self.pattern_error_label = ctk.CTkLabel(frame, text="", text_color="#D9534F",
+                                                font=small, height=16, anchor="w")
+        self.pattern_error_label.pack(fill="x", padx=(106, 0))
+
+        # One button per field, so a field name never has to be typed (and so
+        # cannot be mistyped into a PatternError).
+        fields = ctk.CTkFrame(frame, fg_color="transparent")
+        fields.pack(fill="x", padx=(106, 0))
+        for index, name in enumerate(NAME_FIELDS):
+            col = index % self.BATCH_FIELD_COLUMNS
+            fields.grid_columnconfigure(col, weight=1, uniform="field")
+            ctk.CTkButton(fields, text=name, height=22, font=small,
+                          fg_color=("gray78", "gray28"), text_color=("gray10", "gray90"),
+                          hover_color=("gray70", "gray36"),
+                          command=lambda n=name: self._insert_pattern_field(n)).grid(
+                row=index // self.BATCH_FIELD_COLUMNS, column=col,
+                padx=2, pady=2, sticky="ew")
+
+        ctk.CTkLabel(frame, text="One batch = one supplier's XML format. "
+                                 "The mapping is taken from the first file.",
+                     text_color="gray", anchor="w").pack(fill="x", pady=(4, 2))
+
+        # Planned names
+        self.batch_list = ctk.CTkTextbox(frame, height=120, state="disabled",
+                                         font=ctk.CTkFont(family="Courier", size=12))
+        self.batch_list.pack(fill="both", expand=True, pady=(0, 4))
+
+        # Actions and progress
+        row = ctk.CTkFrame(frame, fg_color="transparent")
+        row.pack(fill="x")
+        self.btn_batch_preview = ctk.CTkButton(row, text="Preview First", width=110,
+                                               command=self._batch_preview)
+        self.btn_batch_preview.pack(side="left")
+        self.btn_batch_run = ctk.CTkButton(row, text="Generate All", width=110,
+                                           fg_color="#2E86DE", state="disabled",
+                                           command=self._batch_run)
+        self.btn_batch_run.pack(side="left", padx=6)
+        self.btn_batch_stop = ctk.CTkButton(row, text="Stop", width=70, state="disabled",
+                                            command=self._batch_stop)
+        self.btn_batch_stop.pack(side="left")
+        self.batch_progress = ctk.CTkProgressBar(row, width=160)
+        self.batch_progress.set(0)
+        self.batch_progress.pack(side="left", padx=(12, 6))
+        self.batch_progress_label = ctk.CTkLabel(row, text="", anchor="w")
+        self.batch_progress_label.pack(side="left", fill="x", expand=True)
+
+    def _insert_pattern_field(self, name: str):
+        entry = self.pattern_entry
+        entry.insert(entry.index("insert"), "{" + name + "}")
+        entry.focus_set()
+        self.pattern_error_label.configure(text="")
+
+    def _choose_batch_folder(self):
+        folder = filedialog.askdirectory(title="Choose a folder of XML invoices")
+        if folder:
+            self._set_batch_inputs([folder], default_output=folder)
+
+    def _choose_batch_files(self):
+        paths = filedialog.askopenfilenames(
+            title="Choose XML invoices",
+            filetypes=[("XML Files", "*.xml"), ("All Files", "*.*")],
+        )
+        if paths:
+            self._set_batch_inputs(list(paths), default_output=os.path.dirname(paths[0]))
+
+    def _set_batch_inputs(self, paths: list[str], default_output: str):
+        self.batch_inputs = collect_xml_files(paths)
+        self._invalidate_batch_plan()
+        self._show_batch_list("")
+        if not self.batch_inputs:
+            self.batch_count_label.configure(text="No XML files found",
+                                             text_color="#D9534F")
+            return
+        n = len(self.batch_inputs)
+        self.batch_count_label.configure(text=f"{n} XML file{'s' if n != 1 else ''}",
+                                         text_color=("gray10", "gray90"))
+        self.batch_output_var.set(default_output)
+        # The whole batch is converted with the mapping of its first file.
+        self._load_xml(self.batch_inputs[0])
+
+    def _browse_batch_output(self):
+        d = filedialog.askdirectory(title="Choose the output folder")
+        if d:
+            self.batch_output_var.set(d)
+
+    def _invalidate_batch_plan(self):
+        self.batch_plan = None
+        if not self._batch_running:
+            self.btn_batch_run.configure(state="disabled")
+
+    def _show_batch_list(self, text: str):
+        self.batch_list.configure(state="normal")
+        self.batch_list.delete("1.0", "end")
+        self.batch_list.insert("end", text)
+        self.batch_list.configure(state="disabled")
+
+    def _make_batch_plan(self):
+        """Validate, build the config, and plan; report problems in the tab.
+
+        Returns ``(plan, config)`` or ``None``. Errors go to labels, not
+        message boxes, so nothing modal interrupts the batch flow.
+        """
+        if not self.batch_inputs:
+            self.status_label.configure(text="Choose a folder or XML files first.")
+            return None
+        pattern = self.pattern_var.get().strip()
+        try:
+            validate_pattern(pattern)
+        except PatternError as e:
+            self.pattern_error_label.configure(text=str(e))
+            self._invalidate_batch_plan()
+            return None
+        self.pattern_error_label.configure(text="")
+
+        # Another XML may have been opened from the top bar since the batch was
+        # chosen; the batch's mapping must come from its own first file.
+        if self.xml_path != self.batch_inputs[0] and not self._load_xml(self.batch_inputs[0]):
+            self._invalidate_batch_plan()
+            return None
+
+        output_dir = self.batch_output_var.get().strip()
+        if not output_dir:
+            output_dir = os.path.dirname(self.batch_inputs[0])
+            self.batch_output_var.set(output_dir)
+
+        config = self._build_config()
+        plan = plan_batch(self.batch_inputs, config, output_dir, pattern=pattern)
+        self.batch_plan = plan
+        self._show_batch_list(self._format_plan(plan))
+        self.btn_batch_run.configure(state="normal")
+        return plan, config
+
+    @staticmethod
+    def _format_plan(plan) -> str:
+        lines = []
+        for item in plan.files:
+            lines.append(f"{item.filename}  ←  {item.source}")
+            lines.extend(f"    ⚠ {w}" for w in item.warnings)
+            if item.error:
+                lines.append(f"    ✖ {item.error}")
+        return "\n".join(lines)
+
+    def _batch_preview(self):
+        if self._batch_running:
+            return
+        if self._make_batch_plan() is None:
+            return
+        # Renders batch_inputs[0] (the current XML) and switches to Preview.
+        self._generate_preview()
+
+    def _batch_run(self):
+        if self._batch_running:
+            return
+        # Re-plan right before running: the pattern, the mapping or the output
+        # folder may have changed since the preview, and files may have
+        # appeared in the output folder.
+        planned = self._make_batch_plan()
+        if planned is None:
+            return
+        plan, config = planned
+        total = len(plan.files)
+        outcomes: dict[int, tuple[str | None, str | None]] = {}
+
+        self._batch_running = True
+        self._batch_stop_event.clear()
+        self.btn_batch_run.configure(state="disabled")
+        self.btn_batch_preview.configure(state="disabled")
+        self.btn_batch_stop.configure(state="normal")
+        self.batch_progress.set(0)
+        self.batch_progress_label.configure(text=f"0 of {total}")
+        self.status_label.configure(text="Batch running...")
+
+        def on_progress(i, n, item):
+            self.after(0, self._on_batch_progress, i, n, item)
+
+        def on_done(i, n, item, path, error):
+            outcomes[i] = (path, error)
+            self.after(0, self.batch_progress.set, i / n if n else 1)
+
+        def run():
+            try:
+                result = run_batch(plan, config,
+                                   include_barcodes=config.include_barcodes,
+                                   font_dir=config.font_dir,
+                                   on_progress=on_progress,
+                                   should_stop=self._batch_stop_event.is_set,
+                                   on_done=on_done)
+                self.after(0, self._on_batch_finished, plan, outcomes, result, None)
+            except Exception as e:  # e.g. the output folder cannot be created
+                self.after(0, self._on_batch_finished, plan, outcomes, None, e)
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _on_batch_progress(self, i: int, total: int, item):
+        self.batch_progress.set((i - 1) / total if total else 0)
+        self.batch_progress_label.configure(
+            text=f"{i} of {total}: {os.path.basename(item.source)}")
+
+    def _batch_stop(self):
+        self._batch_stop_event.set()
+        self.btn_batch_stop.configure(state="disabled")
+        self.status_label.configure(text="Stopping after the current file...")
+
+    def _on_batch_finished(self, plan, outcomes, result, error):
+        self._batch_running = False
+        self.btn_batch_preview.configure(state="normal")
+        self.btn_batch_run.configure(state="normal")
+        self.btn_batch_stop.configure(state="disabled")
+
+        if error is not None:
+            self.status_label.configure(text=f"Batch error: {error}")
+            return
+
+        # List what actually happened. The written name can differ from the
+        # planned one when a file appeared in the folder meanwhile.
+        lines = []
+        for i, item in enumerate(plan.files, 1):
+            path, reason = outcomes.get(i, (None, None))
+            if path:
+                lines.append(f"{os.path.basename(path)}  ←  {item.source}")
+                lines.extend(f"    ⚠ {w}" for w in item.warnings)
+            else:
+                lines.append(f"{item.filename}  ←  {item.source}")
+                lines.append(f"    ✖ {reason}" if reason else "    – not generated (stopped)")
+        self._show_batch_list("\n".join(lines))
+
+        text = f"Batch done: {len(result.succeeded)} succeeded, {len(result.failed)} failed"
+        if result.stopped:
+            text += " (stopped)"
+        self.status_label.configure(text=text)
+
     # ── Bottom bar ──────────────────────────────────────
 
     def _build_bottom_bar(self):
@@ -448,7 +726,19 @@ class App(ctk.CTk):
         )
         if not path:
             return
+        if not self._load_xml(path):
+            messagebox.showerror("XML Error",
+                                 f"Failed to parse XML:\n{self._load_error}")
 
+    def _load_xml(self, path: str) -> bool:
+        """Load *path* as the current XML: discover fields and auto-match.
+
+        Split from the dialog so the Batch tab can load its first file the
+        same way. It reports failure by return value instead of a message box:
+        a modal dialog raised from a batch action would block the queue (and a
+        headless test) until someone clicks it.
+        """
+        self._load_error = ""
         self.xml_path = path
         self.xml_label.configure(text=os.path.basename(path), text_color=("gray10", "gray90"))
 
@@ -457,8 +747,9 @@ class App(ctk.CTk):
             self.discovered_schema = schema
             self.discovered = {"header": schema.header_tags, "item": schema.item_tags}
         except Exception as e:
-            messagebox.showerror("XML Error", f"Failed to parse XML:\n{e}")
-            return
+            self._load_error = str(e)
+            self.status_label.configure(text=f"XML error: {e}")
+            return False
 
         self._update_fields_display()
         self._populate_slot_dropdowns()
@@ -466,6 +757,7 @@ class App(ctk.CTk):
         # Smart auto-matching
         matched, reasons = auto_match_fields(schema)
         self._apply_auto_match(matched, reasons)
+        return True
 
     def _build_config(self) -> MappingConfig:
         """Build a MappingConfig from current GUI state."""
@@ -488,23 +780,39 @@ class App(ctk.CTk):
             font_dir=font_dir,
             header_xpath=header_xpath,
             item_xpath=item_xpath,
+            filename_pattern=self.pattern_var.get().strip(),
         )
+
+    def _suggested_filename(self, config: MappingConfig) -> str:
+        """The single-file Save As name: the pattern's name, else the XML's."""
+        fallback = os.path.splitext(os.path.basename(self.xml_path))[0] + ".pdf"
+        pattern = config.filename_pattern
+        if not pattern:
+            return fallback
+        try:
+            validate_pattern(pattern)
+            stem, _warnings = build_stem(pattern, header_values(self.xml_path, config))
+        except Exception:
+            # Only a suggestion for the dialog; a bad pattern or unreadable
+            # header must not stop the user from saving under any name.
+            return fallback
+        return (stem + ".pdf") if stem else fallback
 
     def _generate_pdf(self):
         if not self.xml_path:
             messagebox.showwarning("No XML", "Please load an XML file first.")
             return
 
+        config = self._build_config()
         output_path = filedialog.asksaveasfilename(
             title="Save PDF As",
             defaultextension=".pdf",
             filetypes=[("PDF Files", "*.pdf")],
-            initialfile=os.path.splitext(os.path.basename(self.xml_path))[0] + ".pdf",
+            initialfile=self._suggested_filename(config),
         )
         if not output_path:
             return
 
-        config = self._build_config()
         self.status_label.configure(text="Generating PDF...")
         self.update_idletasks()
 
@@ -611,6 +919,7 @@ class App(ctk.CTk):
         self.loaded_config = config
         self.barcodes_var.set(config.include_barcodes)
         self.font_dir_var.set(config.font_dir or "")
+        self.pattern_var.set(config.filename_pattern or "")
 
         for slot, var in self.slot_vars.items():
             tag = config.mappings.get(slot, "")

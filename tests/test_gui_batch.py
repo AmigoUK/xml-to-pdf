@@ -1,0 +1,192 @@
+"""The Batch tab, driven through a real window.
+
+The batch logic itself is tested in test_batch.py; what these guard is the
+seam — that the names the tab shows are the names it writes, and that the
+pattern the user builds reaches the config the renderer and the profile get.
+"""
+
+import os
+
+import pytest
+
+from test_gui_config import _run_in_gui
+
+pytestmark = pytest.mark.gui
+
+# Runs the real Tk main loop until *cond* holds. Pumping with app.update() is
+# not enough: a worker thread's self.after() raises "main thread is not in main
+# loop" unless mainloop() is actually running — which it always is for a user.
+PUMP = """
+import time
+def pump(cond, timeout):
+    deadline = time.time() + timeout
+    state = {"ok": False}
+    def check():
+        if cond():
+            state["ok"] = True
+            app.quit()
+        elif time.time() > deadline:
+            app.quit()
+        else:
+            app.after(50, check)
+    app.after(50, check)
+    app.mainloop()
+    if not state["ok"]:
+        raise SystemExit("timed out; status=" + app.status_label.cget("text"))
+"""
+
+
+@pytest.fixture
+def two_invoices(tmp_path):
+    from conftest import build_invoice_xml
+    root = tmp_path / "in"
+    for sub, num in (("a", "INV-1"), ("b", "INV-2")):
+        (root / sub).mkdir(parents=True)
+        build_invoice_xml(str(root / sub / "invoice.xml"),
+                          header_overrides={"InvoiceNumber": num,
+                                            "IssueDate": "2026-03-10"})
+    return str(root)
+
+
+def _preview_snippet(folder: str, out: str, fonts_dir: str) -> str:
+    return PUMP + f"""
+filedialog.askdirectory = lambda **kw: {folder!r}
+app.font_dir_var.set({fonts_dir!r})
+app._choose_batch_folder()
+print("COUNT:", app.batch_count_label.cget("text"))
+app.batch_output_var.set({out!r})
+app.pattern_var.set("{{period}}_{{invoice_number}}")
+app._batch_preview()
+pump(lambda: app.preview_pdf_path is not None
+     and app.status_label.cget("text") == "Preview ready", 30)
+print("TAB:", app.tabview.get())
+print("LIST:", app.batch_list.get("1.0", "end"))
+"""
+
+
+def test_batch_folder_preview_lists_planned_names(two_invoices, tmp_path, fonts_dir):
+    out = _run_in_gui(_preview_snippet(two_invoices, str(tmp_path / "out"), fonts_dir),
+                      two_invoices)
+    print(out)
+    assert "COUNT: 2 XML files" in out, out
+    assert "2026-03_INV-1.pdf" in out, out
+    assert "2026-03_INV-2.pdf" in out, out
+    assert "TAB: Preview" in out, out
+
+
+def test_batch_generate_all_writes_named_pdfs(two_invoices, tmp_path, fonts_dir):
+    target = tmp_path / "out"
+    out = _run_in_gui(_preview_snippet(two_invoices, str(target), fonts_dir) + """
+app._batch_run()
+pump(lambda: app.status_label.cget("text").startswith("Batch done"), 60)
+print("STATUS:", app.status_label.cget("text"))
+print("PROGRESS:", app.batch_progress_label.cget("text"))
+""", two_invoices)
+    assert sorted(os.listdir(target)) == ["2026-03_INV-1.pdf", "2026-03_INV-2.pdf"], out
+    assert "STATUS: Batch done: 2 succeeded, 0 failed" in out, out
+    assert "PROGRESS: 2 of 2: invoice.xml" in out, out
+
+
+def test_generate_all_is_disabled_until_a_plan_exists(two_invoices):
+    out = _run_in_gui("""
+print("STATE:", app.btn_batch_run.cget("state"))
+""", two_invoices)
+    assert "STATE: disabled" in out, out
+
+
+def test_invalid_pattern_is_reported_under_the_entry(two_invoices):
+    out = _run_in_gui(f"""
+filedialog.askdirectory = lambda **kw: {two_invoices!r}
+app._choose_batch_folder()
+app.pattern_var.set("{{nope}}")
+app._batch_preview()
+app.update()
+print("ERR:", app.pattern_error_label.cget("text"))
+print("STATE:", app.btn_batch_run.cget("state"))
+""", two_invoices)
+    assert "ERR: unknown field {nope}" in out, out
+    assert "STATE: disabled" in out, out
+
+
+def test_field_button_inserts_token(two_invoices):
+    out = _run_in_gui("""
+app.pattern_var.set("")
+app._insert_pattern_field("supplier_name")
+print("PATTERN:", app.pattern_var.get())
+""", two_invoices)
+    assert "PATTERN: {supplier_name}" in out, out
+
+
+def test_pattern_saved_with_profile(two_invoices):
+    out = _run_in_gui("""
+app.pattern_var.set("{invoice_number}")
+print("CFG:", app._build_config().filename_pattern)
+""", two_invoices)
+    assert "CFG: {invoice_number}" in out, out
+
+
+def test_choose_files_counts_only_xml(two_invoices, tmp_path):
+    first = os.path.join(two_invoices, "a", "invoice.xml")
+    second = os.path.join(two_invoices, "b", "invoice.xml")
+    out = _run_in_gui(f"""
+filedialog.askopenfilenames = lambda **kw: ({first!r}, {second!r})
+app._choose_batch_files()
+print("COUNT:", app.batch_count_label.cget("text"))
+print("OUTDIR:", app.batch_output_var.get())
+print("XML:", app.xml_path)
+""", first)
+    assert "COUNT: 2 XML files" in out, out
+    assert f"OUTDIR: {os.path.dirname(first)}" in out, out
+    assert f"XML: {first}" in out, out
+
+
+def test_stop_ends_the_batch_early(two_invoices, tmp_path, fonts_dir):
+    out = _run_in_gui(_preview_snippet(two_invoices, str(tmp_path / "out"), fonts_dir) + """
+app._batch_run()
+app._batch_stop()
+pump(lambda: app.status_label.cget("text").startswith("Batch done"), 60)
+print("STATUS:", app.status_label.cget("text"))
+print("LIST:", app.batch_list.get("1.0", "end"))
+""", two_invoices)
+    assert "(stopped)" in out, out
+    assert "not generated (stopped)" in out, out
+
+
+def test_generate_pdf_suggests_the_pattern_name(two_invoices):
+    first = os.path.join(two_invoices, "a", "invoice.xml")
+    out = _run_in_gui("""
+seen = {}
+def fake_save(**kw):
+    seen.update(kw)
+    return ""
+filedialog.asksaveasfilename = fake_save
+app._open_xml()
+app.pattern_var.set("{period}_{invoice_number}")
+app._generate_pdf()
+print("INITIAL:", seen.get("initialfile"))
+app.pattern_var.set("{bad")
+app._generate_pdf()
+print("FALLBACK:", seen.get("initialfile"))
+""", first)
+    assert "INITIAL: 2026-03_INV-1.pdf" in out, out
+    assert "FALLBACK: invoice.pdf" in out, out
+
+
+def test_warnings_survive_the_run(tmp_path, fonts_dir):
+    from conftest import build_invoice_xml
+    folder = tmp_path / "in"
+    folder.mkdir()
+    build_invoice_xml(str(folder / "x.xml"), header_overrides={"BuyerName": ""})
+    target = tmp_path / "out"
+    out = _run_in_gui(PUMP + f"""
+filedialog.askdirectory = lambda **kw: {str(folder)!r}
+app.font_dir_var.set({fonts_dir!r})
+app._choose_batch_folder()
+app.batch_output_var.set({str(target)!r})
+app.pattern_var.set("{{buyer_name}}")
+app._batch_run()
+pump(lambda: app.status_label.cget("text").startswith("Batch done"), 60)
+print("LIST:", app.batch_list.get("1.0", "end"))
+""", str(folder / "x.xml"))
+    assert "no-buyer_name.pdf" in out, out
+    assert "⚠ missing buyer_name" in out, out
