@@ -8,6 +8,7 @@ PDF imports, so the CLI, the batch runner and the GUI can share it.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import date
 
@@ -136,3 +137,31 @@ def build_stem(pattern: str, values: dict[str, str]) -> tuple[str, list[str]]:
 
     stem = stem[:MAX_STEM_LEN].rstrip(" .")
     return stem, warnings
+
+
+# ── Allocation ────────────────────────────────────────────────────
+
+class NameAllocator:
+    """Hand out ``.pdf`` names that never overwrite anything.
+
+    Comparison is case-insensitive because Windows and default macOS volumes
+    treat ``A.pdf`` and ``a.pdf`` as one file. The folder is snapshotted once
+    (cheap for large batches) but each candidate is also checked against the
+    disk, so a file that appeared mid-run is not overwritten either.
+    """
+
+    def __init__(self, output_dir: str):
+        self._dir = output_dir
+        self._taken: set[str] = set()
+        if os.path.isdir(output_dir):
+            self._taken = {n.lower() for n in os.listdir(output_dir)}
+
+    def allocate(self, stem: str) -> str:
+        n = 1
+        while True:
+            name = f"{stem}.pdf" if n == 1 else f"{stem}_{n}.pdf"
+            if (name.lower() not in self._taken
+                    and not os.path.exists(os.path.join(self._dir, name))):
+                self._taken.add(name.lower())
+                return name
+            n += 1

@@ -1,5 +1,5 @@
 import pytest
-from naming import (NAME_FIELDS, PatternError, build_stem, parse_period,
+from naming import (NAME_FIELDS, NameAllocator, PatternError, build_stem, parse_period,
                     sanitize, validate_pattern, MAX_STEM_LEN)
 
 V = {"issue_date": "2026-10-22", "invoice_number": "FV/2026/10",
@@ -62,3 +62,21 @@ def test_reserved_windows_names_get_underscore(value):
 def test_stem_is_capped():
     stem, _ = build_stem("{supplier_name}", {"supplier_name": "x" * 500})
     assert len(stem) == MAX_STEM_LEN
+
+def test_allocator_suffixes_duplicates_in_batch(tmp_path):
+    a = NameAllocator(str(tmp_path))
+    assert [a.allocate("x"), a.allocate("x"), a.allocate("X")] == \
+        ["x.pdf", "x_2.pdf", "X_3.pdf"]
+
+def test_allocator_respects_existing_files_case_insensitively(tmp_path):
+    (tmp_path / "2026-03_INV-TEST.PDF").write_bytes(b"old")
+    a = NameAllocator(str(tmp_path))
+    assert a.allocate("2026-03_inv-test") == "2026-03_inv-test_2.pdf"
+
+def test_allocator_sees_files_created_after_snapshot(tmp_path):
+    a = NameAllocator(str(tmp_path))
+    (tmp_path / "late.pdf").write_bytes(b"x")
+    assert a.allocate("late") == "late_2.pdf"
+
+def test_allocator_on_missing_folder(tmp_path):
+    assert NameAllocator(str(tmp_path / "new")).allocate("a") == "a.pdf"
